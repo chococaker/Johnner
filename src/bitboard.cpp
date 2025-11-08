@@ -19,6 +19,53 @@ namespace choco {
             res.push_back(s.substr (pos_start));
             return res;
         }
+
+        
+        uint8_t countTrailingZeros(uint64_t n) {
+            if (n == 0) {
+                return 64;
+            }
+            #if defined(__GNUC__) || defined(__clang__)
+                return __builtin_ctzll(n);
+            #elif defined(_MSC_VER)
+                return __tzcnt_u64(n);
+            #else // fallback
+                unsigned int count = 0;
+                while ((n & 1) == 0 && count < 64) {
+                    n >>= 1;
+                    count++;
+                }
+                return count;
+            #endif
+        }
+
+        std::vector<Move> extractMoves(uint64_t bitboard, uint8_t offset) {
+            std::vector<Move> moves;
+            while (bitboard != 0) {
+                uint8_t index = countTrailingZeros(bitboard);
+                bitboard &= ~(1ULL << index);
+                Move move = { index, index };
+                moves.push_back(move);
+            }
+
+            return moves;
+        }
+
+        uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]) {
+            return getOccupiedBitboard(bitboards[0]) | getOccupiedBitboard(bitboards[1]);
+        }
+
+        uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]) {
+            return ~getOccupiedBitboard(bitboards);
+        }
+
+        uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
+            uint64_t bitboard = 0;
+            for (size_t i = 0; i < sizeof(bitboards); i++) {
+                bitboard |= bitboards[i];
+            }
+            return bitboard;
+        }
     }
 
     void GameState::toggleCastling(int color, int sidePiece) {
@@ -47,41 +94,41 @@ namespace choco {
             for (int strIndex = 0; strIndex < 8; strIndex++) {
                 switch(row[strIndex]) {
                     case 'K':
-                        bitboards[SIDE_WHITE][KING] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_WHITE, KING, rank, file);
                     break;
                     case 'Q':
-                        bitboards[SIDE_WHITE][QUEEN] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_WHITE, QUEEN, rank, file);
                     break;
                     case 'B':
-                        bitboards[SIDE_WHITE][BISHOP] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_WHITE, BISHOP, rank, file);
                     break;
                     case 'N':
-                        bitboards[SIDE_WHITE][KNIGHT] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_WHITE, KNIGHT, rank, file);
                     break;
                     case 'R':
-                        bitboards[SIDE_WHITE][ROOK] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_WHITE, ROOK, rank, file);
                     break;
                     case 'P':
-                        bitboards[SIDE_WHITE][PAWN] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_WHITE, PAWN, rank, file);
                     break;
 
                     case 'k':
-                        bitboards[SIDE_BLACK][KING] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_BLACK, KING, rank, file);
                     break;
                     case 'q':
-                        bitboards[SIDE_BLACK][QUEEN] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_BLACK, QUEEN, rank, file);
                     break;
                     case 'b':
-                        bitboards[SIDE_BLACK][BISHOP] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_BLACK, BISHOP, rank, file);
                     break;
                     case 'n':
-                        bitboards[SIDE_BLACK][KNIGHT] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_BLACK, KNIGHT, rank, file);
                     break;
                     case 'r':
-                        bitboards[SIDE_BLACK][ROOK] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_BLACK, ROOK, rank, file);
                     break;
                     case 'p':
-                        bitboards[SIDE_BLACK][PAWN] |= (1ULL << getIndex(rank, file));
+                        putPiece(SIDE_BLACK, PAWN, rank, file);
                     break;
 
                     default: // numeric
@@ -90,8 +137,6 @@ namespace choco {
                     break;
                 }
                 file++;
-
-                if (file < 0) break;
             }
         }
     
@@ -118,6 +163,25 @@ namespace choco {
         
         // full moves
         state.moveCount = std::stoi(fenParts[5]);
+    }
+
+    void Board::putPiece(uint8_t side, uint8_t piece, uint8_t rank, uint8_t file) {
+        bitboards[side][piece] |= (1ULL << getIndex(rank, file));
+    }
+    void Board::removePiece(uint8_t side, uint8_t piece, uint8_t rank, uint8_t file) {
+        bitboards[side][piece] ^= (1ULL << getIndex(rank, file));
+    }
+    void Board::movePiece(uint8_t side, uint8_t piece, uint8_t rankFrom, uint8_t fileFrom, uint8_t rankTo, uint8_t fileTo) {
+        removePiece(side, piece, rankFrom, fileFrom);
+        putPiece(side, piece, rankTo, fileTo);
+    }
+
+    std::vector<Move> Board::generateWhitePawnMoves() const {
+        // pushes
+        uint64_t emptySquares = getEmptyBitboard(bitboards);
+        uint64_t pushedPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & emptySquares) << 8;
+        uint64_t doublePushedPawns = ((pushedPawns & BITBOARD_RANK_3) & emptySquares) << 8;
+        // ...
     }
 
     uint64_t getMask(int rank, int file) {

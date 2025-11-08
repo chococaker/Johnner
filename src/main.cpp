@@ -18,9 +18,6 @@ int main() {
     choco::TextureMgr tMgr;
     choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-    bb.bitboards[SIDE_WHITE][PAWN] |= (1ULL << E4);
-    bb.bitboards[SIDE_BLACK][KNIGHT] |= (1ULL << choco::getIndex(4 - 1, 'E' - 'A'));
-
     choco::Renderer renderer = choco::Renderer(tMgr);
     renderer.init();
 

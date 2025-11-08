@@ -72,12 +72,22 @@
 #define G8 62
 #define H8 63
 
-#define SIDE_WHITE 0
-#define SIDE_BLACK 1
+#define SIDE_WHITE   0
+#define SIDE_BLACK   1
 
-#define KING 0
-#define QUEEN 1
-#define BISHOP 2
-#define KNIGHT 3
-#define ROOK 4
-#define PAWN 5
+#define KING     0
+#define QUEEN    1
+#define BISHOP   2
+#define KNIGHT   3
+#define ROOK     4
+#define PAWN     5
+
+#define BITBOARD_RANK_1   (0xFFULL)
+#define BITBOARD_RANK_2   (0xFF00ULL)
+#define BITBOARD_RANK_3   (0xFF0000ULL)
+#define BITBOARD_RANK_4   (0xFF000000ULL)
+#define BITBOARD_RANK_5   (0xFF00000000ULL)
+#define BITBOARD_RANK_6   (0xFF0000000000ULL)
+#define BITBOARD_RANK_7   (0xFF000000000000ULL)
+#define BITBOARD_RANK_8   (0xFF00000000000000ULL)
+
