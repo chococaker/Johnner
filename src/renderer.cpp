@@ -1,11 +1,14 @@
 #include "renderer.h"
 
 #include <iostream>
+#include "macros.h"
 
 #define LIGHT_SQUARE_COLOR CLITERAL(Color){ 255, 253, 208, 255 }
 #define DARK_SQUARE_COLOR  CLITERAL(Color){ 241, 195, 142, 255 }
 
 namespace choco {
+    void drawBitboard(uint64_t bitboard, const Texture2D& texture);
+
     Renderer::Renderer(TextureMgr& textureMgr) : textureMgr(textureMgr) {
     }
 
@@ -25,52 +28,47 @@ namespace choco {
         textureMgr.loadAsset("pawn_black", "assets/pawn_black.png");
     }
 
-    void Renderer::render(const Board& bitboard) const {
+    void Renderer::render(const Board& board) const {
         BeginDrawing();
 
         ClearBackground(WHITE);
-        for (int col = 0; col < 8; col++) {
-            for (int row = 0; row < 8; row++) {
-                // square
-                Color color = ((col + row) % 2 == 0) ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR;
-                DrawRectangle(col * 100, row * 100, 100, 100, color);
 
-                // piece
-                PieceType pieceType = bitboard.getPieceType(row, col);
-                PieceColor pieceColor = bitboard.getPieceColor(row, col);
-                std::string pieceColorString = (pieceColor == PieceColor::SIDE_WHITE) ? "_white" : "_black";
-
-                std::string pieceString = "";
-
-                switch (pieceType) {
-                    case PieceType::KING:
-                        pieceString = "king";
-                    break;
-                    case PieceType::QUEEN:
-                        pieceString = "queen";
-                    break;
-                    case PieceType::BISHOP:
-                        pieceString = "bishop";
-                    break;
-                    case PieceType::KNIGHT:
-                        pieceString = "knight";
-                    break;
-                    case PieceType::ROOK:
-                        pieceString = "rook";
-                    break;
-                    case PieceType::PAWN:
-                        pieceString = "pawn";
-                    break;
-                };
-
-                Texture2D texture = textureMgr.getAsset(pieceString + pieceColorString);
-                Rectangle sourceRec = { 0.0f, 0.0f, (float) texture.width, (float) texture.height };
-                Rectangle destRec = { col * 100.0f, row * 100.0f, 100.0f, 100.0f };
-                DrawTexturePro(texture, sourceRec, destRec, { 0.0f, 0.0f }, 0, WHITE);
+        // checkboard pattern
+        for (int rank = 0; rank < 8; rank++) {
+            for (int file = 0; file < 8; file++) {
+                DrawRectangle(file * 100, rank * 100, 100, 100, (rank + file) % 2 == 0 ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR);
             }
         }
 
+        // draw all da pieces
+        drawBitboard(board.bitboards[SIDE_WHITE][KING],   textureMgr.getAsset("king_white"));
+        drawBitboard(board.bitboards[SIDE_WHITE][QUEEN],  textureMgr.getAsset("queen_white"));
+        drawBitboard(board.bitboards[SIDE_WHITE][BISHOP], textureMgr.getAsset("bishop_white"));
+        drawBitboard(board.bitboards[SIDE_WHITE][KNIGHT], textureMgr.getAsset("knight_white"));
+        drawBitboard(board.bitboards[SIDE_WHITE][ROOK],   textureMgr.getAsset("rook_white"));
+        drawBitboard(board.bitboards[SIDE_WHITE][PAWN],   textureMgr.getAsset("pawn_white"));
+
+        drawBitboard(board.bitboards[SIDE_BLACK][KING],   textureMgr.getAsset("king_black"));
+        drawBitboard(board.bitboards[SIDE_BLACK][QUEEN],  textureMgr.getAsset("queen_black"));
+        drawBitboard(board.bitboards[SIDE_BLACK][BISHOP], textureMgr.getAsset("bishop_black"));
+        drawBitboard(board.bitboards[SIDE_BLACK][KNIGHT], textureMgr.getAsset("knight_black"));
+        drawBitboard(board.bitboards[SIDE_BLACK][ROOK],   textureMgr.getAsset("rook_black"));
+        drawBitboard(board.bitboards[SIDE_BLACK][PAWN],   textureMgr.getAsset("pawn_black"));
+        
 
         EndDrawing();
+    }
+
+    void drawBitboard(uint64_t bitboard, const Texture2D& texture) {
+        for (int rank = 0; rank < 8; rank++) {
+            for (int file = 0; file < 8; file++) {
+                uint64_t mask = choco::getMask(rank, file);
+                if (bitboard & mask) {
+                    Rectangle sourceRec = { 0.0f, 0.0f, (float) texture.width, (float) texture.height };
+                    Rectangle destRec = { (7 - file) * 100.0f, (7 - rank) * 100.0f, 100.0f, 100.0f };
+                    DrawTexturePro(texture, sourceRec, destRec, { 0.0f, 0.0f }, 0, WHITE);
+                }
+            }
+        }
     }
 }

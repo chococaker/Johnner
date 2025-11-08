@@ -2,29 +2,22 @@
 
 #include <cstdint>
 #include <iostream>
+#include <string>
 
 namespace choco {
-    enum class PieceType {
-        KING = 0,
-        QUEEN = 1,
-        BISHOP = 2,
-        KNIGHT = 3,
-        ROOK = 4,
-        PAWN = 5
-    };
-
-    enum class PieceColor {
-        SIDE_WHITE = 0, SIDE_BLACK = 1
-    };
-
     class Board {
     public:
-        PieceType getPieceType(int row, int col) const;
-        PieceColor getPieceColor(int row, int col) const;
+        Board();
+        Board(const std::string& fen);
 
-        uint64_t w_bitboard[6];
-        uint64_t b_bitboard[6];
+        size_t getPieceType(int rank, int file) const;
+        size_t getPieceColor(int rank, int file) const;
+
+        uint64_t bitboards[2][6];
     };
+
+    uint64_t getMask(int rank, int file);
+    int getIndex(int rank, int file);
 } // namespace choco
 
 std::ostream& operator<<(std::ostream& os, const choco::Board& obj);
