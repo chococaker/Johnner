@@ -36,7 +36,7 @@ namespace choco {
         // checkboard pattern
         for (int rank = 0; rank < 8; rank++) {
             for (int file = 0; file < 8; file++) {
-                DrawRectangle(file * 100, rank * 100, 100, 100, (rank + file) % 2 == 0 ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR);
+                DrawRectangle((7 - file) * 100, rank * 100, 100, 100, (rank + file) % 2 == 0 ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR);
             }
         }
 
@@ -65,7 +65,7 @@ namespace choco {
                 uint64_t mask = choco::getMask(rank, file);
                 if (bitboard & mask) {
                     Rectangle sourceRec = { 0.0f, 0.0f, (float) texture.width, (float) texture.height };
-                    Rectangle destRec = { (7 - file) * 100.0f, (7 - rank) * 100.0f, 100.0f, 100.0f };
+                    Rectangle destRec = { (file) * 100.0f, rank * 100.0f, 100.0f, 100.0f };
                     DrawTexturePro(texture, sourceRec, destRec, { 0.0f, 0.0f }, 0, WHITE);
                 }
             }
