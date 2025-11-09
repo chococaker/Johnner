@@ -36,9 +36,13 @@ namespace choco {
         void removePiece(uint8_t side, uint8_t piece, uint8_t rank, uint8_t file);
         void movePiece(uint8_t side, uint8_t piece, uint8_t rankFrom, uint8_t fileFrom, uint8_t rankTo, uint8_t fileTo);
 
+        std::vector<Move> generateWhiteRookMoves() const;
         std::vector<Move> generateWhitePawnMoves() const;
     };
 
+    uint64_t getMask(uint8_t index);
     uint64_t getMask(int rank, int file);
     uint8_t getIndex(int rank, int file);
+    std::string toRankFilePos(uint8_t index);
+    std::string bitboardToPrettyString(uint64_t bitboard);
 } // namespace choco

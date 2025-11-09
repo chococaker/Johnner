@@ -1,7 +1,9 @@
 #include "bitboard.h"
 #include <iostream>
+#include <sstream>
 #include <cstring>
 #include <vector>
+
 #include "macros.h"
 
 namespace choco {
@@ -23,7 +25,7 @@ namespace choco {
         
         uint8_t countTrailingZeros(uint64_t n) {
             if (n == 0) {
-                return 64;
+                return 0;
             }
             #if defined(__GNUC__) || defined(__clang__)
                 return __builtin_ctzll(n);
@@ -39,16 +41,21 @@ namespace choco {
             #endif
         }
 
-        std::vector<Move> extractMoves(uint64_t bitboard, uint8_t offset) {
-            std::vector<Move> moves;
+        void addExtractedMoves(uint64_t bitboard, uint8_t offset, std::vector<Move>& moveVec) {
             while (bitboard != 0) {
                 uint8_t index = countTrailingZeros(bitboard);
                 bitboard &= ~(1ULL << index);
-                Move move = { index, index };
-                moves.push_back(move);
+                Move move = { index - offset, index };
+                moveVec.push_back(move);
             }
+        }
 
-            return moves;
+        uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
+            uint64_t bitboard = 0;
+            for (size_t i = 0; i < 6; i++) {
+                bitboard |= bitboards[i];
+            }
+            return bitboard;
         }
 
         uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]) {
@@ -57,14 +64,6 @@ namespace choco {
 
         uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]) {
             return ~getOccupiedBitboard(bitboards);
-        }
-
-        uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
-            uint64_t bitboard = 0;
-            for (size_t i = 0; i < sizeof(bitboards); i++) {
-                bitboard |= bitboards[i];
-            }
-            return bitboard;
         }
     }
 
@@ -176,19 +175,68 @@ namespace choco {
         putPiece(side, piece, rankTo, fileTo);
     }
 
+    std::vector<Move> Board::generateWhiteRookMoves() const {
+        if (!bitboards[SIDE_WHITE][ROOK]) return std::vector<Move>();
+
+
+    }
+
     std::vector<Move> Board::generateWhitePawnMoves() const {
+        if (!bitboards[SIDE_WHITE][PAWN]) return std::vector<Move>();
+
+        std::vector<Move> moves;
+
         // pushes
         uint64_t emptySquares = getEmptyBitboard(bitboards);
-        uint64_t pushedPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & emptySquares) << 8;
-        uint64_t doublePushedPawns = ((pushedPawns & BITBOARD_RANK_3) & emptySquares) << 8;
-        // ...
+        uint64_t pushedPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) << 8) & emptySquares;
+        uint64_t doublePushedPawns = ((pushedPawns & BITBOARD_RANK_3) << 8) & emptySquares;
+        std::cout << "Double pushed pawns:" << std::endl;
+        std::cout << bitboardToPrettyString(doublePushedPawns) << std::endl;
+        addExtractedMoves(pushedPawns, 8, moves);
+        addExtractedMoves(doublePushedPawns, 16, moves);
+
+        // captures
+        uint64_t blackSquares = getOccupiedBitboard(bitboards[SIDE_BLACK]);
+        uint64_t captureLeftPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & blackSquares) << 7;
+        uint64_t captureRightPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & blackSquares) << 9;
+        addExtractedMoves(captureLeftPawns, 7, moves);
+        addExtractedMoves(captureRightPawns, 9, moves);
+
+        // en passant
+        uint8_t passantLeftPawnIndex = state.enpassantSquare - 9;
+        uint8_t passantRightPawnIndex = state.enpassantSquare - 7;
+        addExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantLeftPawnIndex), -9, moves);
+        addExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantRightPawnIndex), -7, moves);
+
+        return moves;
+    }
+
+    uint64_t getMask(uint8_t index) {
+        return 1ULL << index;
     }
 
     uint64_t getMask(int rank, int file) {
-        return 1ULL << getIndex(rank, file);
+        return getMask(getIndex(rank, file));
     }
 
     uint8_t getIndex(int rank, int file) {
         return (rank * 8) + file;
+    }
+
+    std::string toRankFilePos(uint8_t index) {
+        return std::string(1, (index % 8) + 'A') + std::to_string(index / 8 + 1);
+    }
+    
+    std::string bitboardToPrettyString(uint64_t bitboard) {
+        std::ostringstream oss;
+        for (int rank = 0; rank < 8; rank++) {
+            for (int file = 0; file < 8; file++) {
+                uint64_t mask = choco::getMask(rank, file);
+                oss << (((bool) (bitboard & mask))) << " ";
+            }
+            oss << "\n";
+        }
+        std::string board = oss.str();
+        return board.erase(board.length() - 1);
     }
 } // namespace choco
