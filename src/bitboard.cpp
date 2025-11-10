@@ -118,14 +118,16 @@ namespace choco {
 
     void initBitboards() {
         std::random_device rd;
-        std::mt19937_64 engine(rd());
+        uint64_t seed = rd();
+        std::cout << "Seed: " << seed << std::endl;
+        std::mt19937_64 engine(seed);
         std::uniform_int_distribution<uint64_t> distribution(
             std::numeric_limits<uint64_t>::min(), 
             std::numeric_limits<uint64_t>::max()
         );
         
         // rook magics
-        for (int i = 63; i >= 0; i--) {
+        for (int i = 0; i < 64; i++) {
             Magic& val = ROOK_TBL[i];
 
             // mask
@@ -155,12 +157,11 @@ namespace choco {
             // magic
             bool validMagic = true;
             std::cout << "Generating magic for " << i << " (" << $rookLookIndex << " permutations)" << std::endl;
-            std::cout << bitboardToPrettyString(currentAttackBoard) << std::endl;
             while (true) {
                 // reset
                 std::memset(ROOK_ATTACKS[i], 0, sizeof(ROOK_ATTACKS[i]));
                 validMagic = true;
-                val.magic = distribution(engine) & distribution(engine);
+                val.magic = distribution(engine) & distribution(engine) & distribution(engine);
                 $rookLookIndex = 0; // reuse the old variable why not
 
                 int magicCheckCount_ = 0;
@@ -176,7 +177,6 @@ namespace choco {
                     magicCheckCount_++;
 
                     if (ROOK_ATTACKS[i][hash] && ROOK_ATTACKS[i][hash] != rookAttackBoard) { // hash collision
-                        // if (magicCheckCount_ >= 1500) std::cout << magicCheckCount_ << ": " << val.magic << std::endl;
                         validMagic = false;
                         return;
                     }
@@ -186,11 +186,6 @@ namespace choco {
 
                 if (validMagic) break;
             }
-        }
-        
-        std::cout << "Found magics! " << std::endl;
-        for (int i = 0; i < 64; i++) {
-            std::cout << ROOK_TBL[i].magic << ",";
         }
     }
     

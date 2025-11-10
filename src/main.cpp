@@ -11,10 +11,10 @@ int main() {
     choco::initBitboards();
     choco::Board bb = choco::Board("8/8/8/4R3/8/8/8/8 w - - 0 1");
 
-    std::vector<choco::Move> rookMoves = bb.generateWhiteRookMoves();
-    for (const choco::Move& move : rookMoves) {
-        std::cout << " - From " << choco::indexToPrettyString(move.from) << " to " << choco::indexToPrettyString(move.to) << std::endl;
-    }
+    // std::vector<choco::Move> rookMoves = bb.generateWhiteRookMoves();
+    // for (const choco::Move& move : rookMoves) {
+    //     std::cout << " - From " << choco::indexToPrettyString(move.from) << " to " << choco::indexToPrettyString(move.to) << std::endl;
+    // }
 
     // choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     // 
