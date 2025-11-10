@@ -8,14 +8,13 @@
 #include <iostream>
 
 int main() {
-    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    choco::initBitboards();
+    choco::Board bb = choco::Board("8/8/8/4R3/8/8/8/8 w - - 0 1");
 
-    std::cout << "Pawn moves!" << std::endl;
-    for (const choco::Move& move : bb.generateWhitePawnMoves()) {
-        std::cout << "from " << choco::toRankFilePos(move.from) << " to " << choco::toRankFilePos(move.to) << std::endl;
-    }
-    std::cout << "End Pawn moves!" << std::endl;
+    std::cout << "\n" << choco::bitboardToPrettyString(choco::generateRookAttacks_(bb)) << std::endl;
 
+    // choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    // 
     // choco::TextureMgr tMgr;
     // choco::Renderer renderer = choco::Renderer(tMgr);
     // renderer.init();
@@ -23,7 +22,7 @@ int main() {
     // const int screenHeight = 800;
     // InitWindow(screenWidth, screenHeight, "Johnner Chess Engine");
     // SetTargetFPS(60);
-
+    // 
     // while (!WindowShouldClose()) {
     //     renderer.render(bb);
     // }

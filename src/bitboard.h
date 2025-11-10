@@ -6,6 +6,8 @@
 #include <vector>
 
 namespace choco {
+    void initBitboards();
+
     class Move {
     public:
         uint8_t from;
@@ -42,7 +44,14 @@ namespace choco {
 
     uint64_t getMask(uint8_t index);
     uint64_t getMask(int rank, int file);
+    uint64_t getRankMask(int rank);
+    uint64_t getFileMask(int file);
     uint8_t getIndex(int rank, int file);
+    uint8_t getRank(uint8_t index);
+    uint8_t getFile(uint8_t index);
     std::string toRankFilePos(uint8_t index);
     std::string bitboardToPrettyString(uint64_t bitboard);
+
+    // TEMPORARY
+    uint64_t generateRookAttacks_(const Board& b);
 } // namespace choco
