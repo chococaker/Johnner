@@ -45,7 +45,7 @@ namespace choco {
             #endif
         }
 
-        void addExtractedMoves(uint64_t bitboard, uint8_t offset, std::vector<Move>& moveVec) {
+        void addOffsetExtractedMoves(uint64_t bitboard, uint8_t offset, std::vector<Move>& moveVec) {
             while (bitboard != 0) {
                 uint8_t index = countTrailingZeros(bitboard);
                 bitboard &= ~(1ULL << index);
@@ -54,6 +54,15 @@ namespace choco {
             }
         }
 
+        void addOriginExtractedMoves(uint64_t bitboard, uint8_t originIndex, std::vector<Move>& moveVec) {
+            while (bitboard != 0) {
+                uint8_t index = countTrailingZeros(bitboard);
+                bitboard &= ~(1ULL << index);
+                Move move = { originIndex, index };
+                moveVec.push_back(move);
+            }
+        }
+        
         uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
             uint64_t bitboard = 0;
             for (size_t i = 0; i < 6; i++) {
@@ -102,7 +111,6 @@ namespace choco {
     struct Magic {
         uint64_t mask;
         uint64_t magic;
-        uint8_t shifts;
     };
 
     Magic ROOK_TBL[64] = {0};
@@ -117,7 +125,7 @@ namespace choco {
         );
         
         // rook magics
-        for (int i = 0; i < 64; i++) {
+        for (int i = 63; i >= 0; i--) {
             Magic& val = ROOK_TBL[i];
 
             // mask
@@ -134,13 +142,7 @@ namespace choco {
 
             val.mask = currentAttackBoard;
 
-            // shifts
-            val.shifts = 10;
-            if (fileMask == BITBOARD_FILE_A || fileMask == BITBOARD_FILE_H) val.shifts++;
-            if (rankMask == BITBOARD_RANK_1 || rankMask == BITBOARD_RANK_8) val.shifts++;
-
             // bitboard generation
-
             uint64_t $rookLook[4096] = {0};
             int $rookLookIndex = 0;
             enumerateSubsets(val.mask, [&$rookLook, &$rookLookIndex, i](uint64_t bitboard) -> void {
@@ -149,17 +151,16 @@ namespace choco {
                                             | walk(0, 1, bitboard, i)
                                             | walk(0, -1, bitboard, i);
             });
-            std::cout << $rookLookIndex << std::endl;
 
             // magic
             bool validMagic = true;
-            std::cout << "Generating magic for " << i << std::endl;
+            std::cout << "Generating magic for " << i << " (" << $rookLookIndex << " permutations)" << std::endl;
             std::cout << bitboardToPrettyString(currentAttackBoard) << std::endl;
             while (true) {
                 // reset
                 std::memset(ROOK_ATTACKS[i], 0, sizeof(ROOK_ATTACKS[i]));
                 validMagic = true;
-                val.magic = distribution(engine);
+                val.magic = distribution(engine) & distribution(engine);
                 $rookLookIndex = 0; // reuse the old variable why not
 
                 int magicCheckCount_ = 0;
@@ -216,44 +217,45 @@ namespace choco {
         for (int rank = 0; rank < 8; rank++) {
             const std::string& row = positions[7 - rank];
             int file = 0;
+            uint8_t index = getIndex(rank, file);
             for (int strIndex = 0; strIndex < 8; strIndex++) {
                 switch(row[strIndex]) {
                     case 'K':
-                        putPiece(SIDE_WHITE, KING, rank, file);
+                        putPiece(SIDE_WHITE, KING, index);
                     break;
                     case 'Q':
-                        putPiece(SIDE_WHITE, QUEEN, rank, file);
+                        putPiece(SIDE_WHITE, QUEEN, index);
                     break;
                     case 'B':
-                        putPiece(SIDE_WHITE, BISHOP, rank, file);
+                        putPiece(SIDE_WHITE, BISHOP, index);
                     break;
                     case 'N':
-                        putPiece(SIDE_WHITE, KNIGHT, rank, file);
+                        putPiece(SIDE_WHITE, KNIGHT, index);
                     break;
                     case 'R':
-                        putPiece(SIDE_WHITE, ROOK, rank, file);
+                        putPiece(SIDE_WHITE, ROOK, index);
                     break;
                     case 'P':
-                        putPiece(SIDE_WHITE, PAWN, rank, file);
+                        putPiece(SIDE_WHITE, PAWN, index);
                     break;
 
                     case 'k':
-                        putPiece(SIDE_BLACK, KING, rank, file);
+                        putPiece(SIDE_BLACK, KING, index);
                     break;
                     case 'q':
-                        putPiece(SIDE_BLACK, QUEEN, rank, file);
+                        putPiece(SIDE_BLACK, QUEEN, index);
                     break;
                     case 'b':
-                        putPiece(SIDE_BLACK, BISHOP, rank, file);
+                        putPiece(SIDE_BLACK, BISHOP, index);
                     break;
                     case 'n':
-                        putPiece(SIDE_BLACK, KNIGHT, rank, file);
+                        putPiece(SIDE_BLACK, KNIGHT, index);
                     break;
                     case 'r':
-                        putPiece(SIDE_BLACK, ROOK, rank, file);
+                        putPiece(SIDE_BLACK, ROOK, index);
                     break;
                     case 'p':
-                        putPiece(SIDE_BLACK, PAWN, rank, file);
+                        putPiece(SIDE_BLACK, PAWN, index);
                     break;
 
                     default: // numeric
@@ -290,20 +292,45 @@ namespace choco {
         state.moveCount = std::stoi(fenParts[5]);
     }
 
-    void Board::putPiece(uint8_t side, uint8_t piece, uint8_t rank, uint8_t file) {
-        bitboards[side][piece] |= (1ULL << getIndex(rank, file));
+    void Board::putPiece(uint8_t side, uint8_t piece, uint8_t index) {
+        bitboards[side][piece] |= (1ULL << index);
     }
-    void Board::removePiece(uint8_t side, uint8_t piece, uint8_t rank, uint8_t file) {
-        bitboards[side][piece] ^= (1ULL << getIndex(rank, file));
+    void Board::removePiece(uint8_t side, uint8_t piece, uint8_t index) {
+        bitboards[side][piece] ^= (1ULL << index);
     }
-    void Board::movePiece(uint8_t side, uint8_t piece, uint8_t rankFrom, uint8_t fileFrom, uint8_t rankTo, uint8_t fileTo) {
-        removePiece(side, piece, rankFrom, fileFrom);
-        putPiece(side, piece, rankTo, fileTo);
+    void Board::makeMove(const Move& move, uint8_t piece) {
+        removePiece(state.activeColor, piece, move.from);
+        putPiece(state.activeColor, piece, move.to);
+
+        state.activeColor = !state.activeColor;
+
+        // en passant
+        if (piece == PAWN && (move.from - move.to == 16 || move.to - move.from == 16)) {
+            if (move.from - move.to == 16) {
+                state.enpassantSquare = move.from - 8;
+            } else if (move.to - move.from == 16) {
+                state.enpassantSquare = move.from + 8;
+            } else {
+                state.enpassantSquare = 127; // impossible
+            }
+        }
     }
 
     std::vector<Move> Board::generateWhiteRookMoves() const {
-        if (!bitboards[SIDE_WHITE][ROOK]) return std::vector<Move>();
+        std::vector<Move> moves;
 
+        uint64_t rookBoard = bitboards[SIDE_WHITE][ROOK];
+        uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
+        while (rookBoard) {
+            uint8_t rookIndex = countTrailingZeros(bitboards[SIDE_WHITE][ROOK]);
+            rookBoard &= getMask(rookIndex);
+            const Magic& val = ROOK_TBL[rookIndex];
+            uint64_t relevantBitboard = occupiedBitboard & val.mask;
+            uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
+            addOriginExtractedMoves(ROOK_ATTACKS[rookIndex][hash], rookIndex, moves);
+        }
+
+        return moves;
     }
 
     std::vector<Move> Board::generateWhitePawnMoves() const {
@@ -315,21 +342,23 @@ namespace choco {
         uint64_t emptySquares = getEmptyBitboard(bitboards);
         uint64_t pushedPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) << 8) & emptySquares;
         uint64_t doublePushedPawns = ((pushedPawns & BITBOARD_RANK_3) << 8) & emptySquares;
-        addExtractedMoves(pushedPawns, 8, moves);
-        addExtractedMoves(doublePushedPawns, 16, moves);
+        addOffsetExtractedMoves(pushedPawns, 8, moves);
+        addOffsetExtractedMoves(doublePushedPawns, 16, moves);
 
         // captures
         uint64_t blackSquares = getOccupiedBitboard(bitboards[SIDE_BLACK]);
         uint64_t captureLeftPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & blackSquares) << 7;
         uint64_t captureRightPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & blackSquares) << 9;
-        addExtractedMoves(captureLeftPawns, 7, moves);
-        addExtractedMoves(captureRightPawns, 9, moves);
+        addOffsetExtractedMoves(captureLeftPawns, 7, moves);
+        addOffsetExtractedMoves(captureRightPawns, 9, moves);
 
         // en passant
-        uint8_t passantLeftPawnIndex = state.enpassantSquare - 9;
-        uint8_t passantRightPawnIndex = state.enpassantSquare - 7;
-        addExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantLeftPawnIndex), -9, moves);
-        addExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantRightPawnIndex), -7, moves);
+        if (state.enpassantSquare < 64) {
+            uint8_t passantLeftPawnIndex = state.enpassantSquare - 9;
+            uint8_t passantRightPawnIndex = state.enpassantSquare - 7;
+            addOffsetExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantLeftPawnIndex), -9, moves);
+            addOffsetExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantRightPawnIndex), -7, moves);
+        }
 
         return moves;
     }
@@ -384,7 +413,7 @@ namespace choco {
         return index % 8;
     }
 
-    std::string toRankFilePos(uint8_t index) {
+    std::string indexToPrettyString(uint8_t index) {
         return std::string(1, (index % 8) + 'A') + std::to_string(index / 8 + 1);
     }
     
@@ -399,18 +428,5 @@ namespace choco {
         }
         std::string board = oss.str();
         return board.erase(board.length() - 1);
-    }
-
-    // TEMPORARY
-    uint64_t generateRookAttacks_(const Board& b) {
-        // get rook index
-        uint8_t rookIndex = countTrailingZeros(b.bitboards[SIDE_WHITE][ROOK]);
-
-        // do your magic
-        const Magic& magic = ROOK_TBL[rookIndex];
-        uint64_t relevantBitboard = getOccupiedBitboard(b.bitboards) & magic.mask;
-        uint16_t hash = ((relevantBitboard * magic.magic) >> (64 - 13)) & ((1ULL << 13) - 1);
-
-        return ROOK_ATTACKS[rookIndex][hash];
     }
 } // namespace choco

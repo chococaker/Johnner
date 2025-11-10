@@ -34,9 +34,9 @@ namespace choco {
         uint64_t bitboards[2][6];
         GameState state;
 
-        void putPiece(uint8_t side, uint8_t piece, uint8_t rank, uint8_t file);
-        void removePiece(uint8_t side, uint8_t piece, uint8_t rank, uint8_t file);
-        void movePiece(uint8_t side, uint8_t piece, uint8_t rankFrom, uint8_t fileFrom, uint8_t rankTo, uint8_t fileTo);
+        void putPiece(uint8_t side, uint8_t piece, uint8_t index);
+        void removePiece(uint8_t side, uint8_t piece, uint8_t index);
+        void makeMove(const Move& move, uint8_t piece); // also switches turns, sets up game state
 
         std::vector<Move> generateWhiteRookMoves() const;
         std::vector<Move> generateWhitePawnMoves() const;
@@ -49,9 +49,7 @@ namespace choco {
     uint8_t getIndex(int rank, int file);
     uint8_t getRank(uint8_t index);
     uint8_t getFile(uint8_t index);
-    std::string toRankFilePos(uint8_t index);
-    std::string bitboardToPrettyString(uint64_t bitboard);
 
-    // TEMPORARY
-    uint64_t generateRookAttacks_(const Board& b);
+    std::string indexToPrettyString(uint8_t index);
+    std::string bitboardToPrettyString(uint64_t bitboard);
 } // namespace choco
