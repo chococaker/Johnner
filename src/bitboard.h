@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace choco {
-    void initBitboards();
+    uint64_t initBitboards(uint64_t seed, uint64_t maxIterations);
 
     class Move {
     public:

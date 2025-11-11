@@ -4,14 +4,16 @@
 #include <string>
 #include <unordered_map>
 #include <stdexcept>
+#include <iostream>
 
 namespace choco {
     class TextureMgr {
     public:
-        void loadAsset(std::string id, const std::string& path) {
+        void loadAsset(const std::string& id, const std::string& path) {
             if (textures.count(id)) {
                 throw std::invalid_argument("Already loaded ID " + id);
             }
+            std::cout << "Loading " << id << std::endl;
             Image img = LoadImage(path.c_str());
             Texture2D asset = LoadTextureFromImage(img);
             UnloadImage(img);

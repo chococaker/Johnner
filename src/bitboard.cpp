@@ -1,6 +1,6 @@
 #include "bitboard.h"
 
-#include <iostream>
+#include <cmath>
 #include <sstream>
 #include <cstring>
 #include <vector>
@@ -116,79 +116,116 @@ namespace choco {
     Magic ROOK_TBL[64] = {0};
     uint64_t ROOK_ATTACKS[64][4096] = {0};
 
-    void initBitboards() {
-        std::random_device rd;
-        uint64_t seed = rd();
-        std::cout << "Seed: " << seed << std::endl;
+    Magic BISHOP_TBL[64] = {0};
+    uint64_t BISHOP_ATTACKS[64][512] = {0};
+
+    template<size_t shifts>
+    uint64_t initMagics(
+        uint64_t seed,
+        Magic table[64],
+        uint64_t attacks[64][1 << shifts],
+        const std::function<uint64_t(uint64_t bitboard, uint8_t index)>& attackGenerator,
+        const std::function<uint64_t(uint8_t index)>& maskGenerator
+    ) {
         std::mt19937_64 engine(seed);
-        std::uniform_int_distribution<uint64_t> distribution(
-            std::numeric_limits<uint64_t>::min(), 
-            std::numeric_limits<uint64_t>::max()
-        );
+
+        uint64_t iterations = 0;
+
+        uint16_t attacksSize = 1 << shifts;
+
+        std::memset(attacks, 0, 64 * (1 << shifts) * sizeof(uint64_t));
+        std::memset(table, 0, 64 * sizeof(Magic));
         
-        // rook magics
         for (int i = 0; i < 64; i++) {
-            Magic& val = ROOK_TBL[i];
+            Magic& val = table[i];
 
             // mask
-            uint64_t fileMask = choco::getFileMask(i % 8);
-            uint64_t rankMask = choco::getRankMask(i / 8);
-            uint64_t currentAttackBoard = fileMask | rankMask;
-
-            if (fileMask != BITBOARD_FILE_A) currentAttackBoard &= (~BITBOARD_FILE_A);
-            if (fileMask != BITBOARD_FILE_H) currentAttackBoard &= (~BITBOARD_FILE_H);
-            if (rankMask != BITBOARD_RANK_1) currentAttackBoard &= (~BITBOARD_RANK_1);
-            if (rankMask != BITBOARD_RANK_8) currentAttackBoard &= (~BITBOARD_RANK_8);
-
-            currentAttackBoard &= ~(choco::getMask(i));
-
-            val.mask = currentAttackBoard;
+            val.mask = maskGenerator(i);
 
             // bitboard generation
-            uint64_t $rookLook[4096] = {0};
-            int $rookLookIndex = 0;
-            enumerateSubsets(val.mask, [&$rookLook, &$rookLookIndex, i](uint64_t bitboard) -> void {
-                $rookLook[$rookLookIndex++] = walk(1, 0, bitboard, i)
-                                            | walk(-1, 0, bitboard, i)
-                                            | walk(0, 1, bitboard, i)
-                                            | walk(0, -1, bitboard, i);
+            uint64_t $look[attacksSize] = {0};
+            int $lookIndex = 0;
+            enumerateSubsets(val.mask, [&$look, &$lookIndex, &attackGenerator, i](uint64_t bitboard) -> void {
+                $look[$lookIndex++] = attackGenerator(bitboard, i);
             });
 
             // magic
             bool validMagic = true;
-            std::cout << "Generating magic for " << i << " (" << $rookLookIndex << " permutations)" << std::endl;
             while (true) {
                 // reset
-                std::memset(ROOK_ATTACKS[i], 0, sizeof(ROOK_ATTACKS[i]));
+                std::memset(attacks[i], 0, sizeof(uint64_t) * attacksSize);
                 validMagic = true;
-                val.magic = distribution(engine) & distribution(engine) & distribution(engine);
-                $rookLookIndex = 0; // reuse the old variable why not
+                val.magic = engine() & engine() & engine();
+                $lookIndex = 0; // reuse the old variable why not
 
                 int magicCheckCount_ = 0;
 
-                enumerateSubsets(val.mask, [&validMagic, &val, &$rookLook, &$rookLookIndex, &magicCheckCount_, i](uint64_t bitboard) -> void {
+                enumerateSubsets(val.mask, [&validMagic,
+                                            &val,
+                                            &$look,
+                                            &$lookIndex,
+                                            &magicCheckCount_,
+                                            &iterations,
+                                            &attacks,
+                                            i](uint64_t bitboard) -> void {
                     if (!validMagic) return; // skip through iterations if magic num is invalid
-                    if (!bitboard) return;
+
+                    iterations++;
 
                     // hash, then isolate last digits
-                    uint16_t hash = ((bitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
+                    uint16_t hash = ((bitboard * val.magic) >> (64 - shifts)) & ((1ULL << shifts) - 1);
 
-                    uint64_t rookAttackBoard = $rookLook[$rookLookIndex++];
+                    uint64_t attackBoard = $look[$lookIndex++];
                     magicCheckCount_++;
 
-                    if (ROOK_ATTACKS[i][hash] && ROOK_ATTACKS[i][hash] != rookAttackBoard) { // hash collision
+                    if (attacks[i][hash] && attacks[i][hash] != attackBoard) { // hash collision
                         validMagic = false;
                         return;
                     }
                     
-                    ROOK_ATTACKS[i][hash] = rookAttackBoard;
+                    attacks[i][hash] = attackBoard;
                 });
 
                 if (validMagic) break;
             }
         }
+
+        return iterations;
     }
-    
+
+    uint64_t initRookBoards(uint64_t seed, uint64_t maxIterations) {
+        static std::function<uint64_t(uint64_t, uint8_t)> attackGenerator = [](uint64_t bitboard, uint8_t index) -> uint64_t {
+            uint64_t attackBitboard = walk(1, 0, bitboard, index)
+                 | walk(-1, 0, bitboard, index)
+                 | walk(0, 1, bitboard, index)
+                 | walk(0, -1, bitboard, index);
+            
+            return attackBitboard;
+        };
+
+        static std::function<uint64_t(uint8_t)> maskGenerator = [](uint8_t index) -> uint64_t {
+            uint64_t fileMask = choco::getFileMask(index % 8);
+            uint64_t rankMask = choco::getRankMask(index / 8);
+            uint64_t mask = fileMask | rankMask;
+
+            if (fileMask != BITBOARD_FILE_A) mask &= (~BITBOARD_FILE_A);
+            if (fileMask != BITBOARD_FILE_H) mask &= (~BITBOARD_FILE_H);
+            if (rankMask != BITBOARD_RANK_1) mask &= (~BITBOARD_RANK_1);
+            if (rankMask != BITBOARD_RANK_8) mask &= (~BITBOARD_RANK_8);
+
+            mask &= ~(choco::getMask(index));
+
+            return mask;
+        };
+
+        return initMagics<12>(seed, ROOK_TBL, ROOK_ATTACKS, attackGenerator, maskGenerator);
+    }
+
+    // returns number of attempts required to generate all magics
+    uint64_t initBitboards(uint64_t seed, uint64_t maxIterations) {
+        return initRookBoards(seed, maxIterations);
+    }
+
     void GameState::toggleCastling(int color, int sidePiece) {
         uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
         castling ^= mask;
@@ -212,8 +249,9 @@ namespace choco {
         for (int rank = 0; rank < 8; rank++) {
             const std::string& row = positions[7 - rank];
             int file = 0;
-            uint8_t index = getIndex(rank, file);
-            for (int strIndex = 0; strIndex < 8; strIndex++) {
+            
+            for (size_t strIndex = 0; strIndex < row.length() && file < 8; strIndex++) {
+                uint8_t index = getIndex(rank, file);
                 switch(row[strIndex]) {
                     case 'K':
                         putPiece(SIDE_WHITE, KING, index);
@@ -254,7 +292,7 @@ namespace choco {
                     break;
 
                     default: // numeric
-                        int val = row[file] - '0';
+                        int val = row[strIndex] - '0';
                         file += val - 1;
                     break;
                 }
@@ -317,12 +355,13 @@ namespace choco {
         uint64_t rookBoard = bitboards[SIDE_WHITE][ROOK];
         uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
         while (rookBoard) {
-            uint8_t rookIndex = countTrailingZeros(bitboards[SIDE_WHITE][ROOK]);
-            rookBoard &= getMask(rookIndex);
+            uint8_t rookIndex = countTrailingZeros(rookBoard);
+            rookBoard &= ~getMask(rookIndex);
             const Magic& val = ROOK_TBL[rookIndex];
             uint64_t relevantBitboard = occupiedBitboard & val.mask;
             uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
-            addOriginExtractedMoves(ROOK_ATTACKS[rookIndex][hash], rookIndex, moves);
+            uint64_t stuff = ROOK_ATTACKS[rookIndex][hash] & (~getOccupiedBitboard(bitboards[SIDE_WHITE]));
+            addOriginExtractedMoves(stuff, rookIndex, moves);
         }
 
         return moves;
@@ -412,10 +451,14 @@ namespace choco {
         return std::string(1, (index % 8) + 'A') + std::to_string(index / 8 + 1);
     }
     
+    // prints the bitboard from black's perspective
+    // H1(7)  --  A1(0)
+    // |              |
+    // H8(63) -- H1(55)
     std::string bitboardToPrettyString(uint64_t bitboard) {
         std::ostringstream oss;
         for (int rank = 0; rank < 8; rank++) {
-            for (int file = 0; file < 8; file++) {
+            for (int file = 7; file >= 0; file--) {
                 uint64_t mask = choco::getMask(rank, file);
                 oss << (((bool) (bitboard & mask))) << " ";
             }

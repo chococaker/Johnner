@@ -65,7 +65,7 @@ namespace choco {
                 uint64_t mask = choco::getMask(rank, file);
                 if (bitboard & mask) {
                     Rectangle sourceRec = { 0.0f, 0.0f, (float) texture.width, (float) texture.height };
-                    Rectangle destRec = { (file) * 100.0f, rank * 100.0f, 100.0f, 100.0f };
+                    Rectangle destRec = { (7 - file) * 100.0f, rank * 100.0f, 100.0f, 100.0f };
                     DrawTexturePro(texture, sourceRec, destRec, { 0.0f, 0.0f }, 0, WHITE);
                 }
             }
