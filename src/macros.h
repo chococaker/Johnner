@@ -74,6 +74,7 @@
 
 #define SIDE_WHITE   0
 #define SIDE_BLACK   1
+#define OPPOSITE_SIDE(SIDE) SIDE == SIDE_WHITE ? SIDE_BLACK : SIDE_WHITE
 
 #define KING     0
 #define QUEEN    1

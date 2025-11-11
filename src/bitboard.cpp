@@ -410,7 +410,7 @@ namespace choco {
 
         state.activeColor = !state.activeColor;
 
-        // en passant
+        // double push handling
         if (piece == PAWN && (move.from - move.to == 16 || move.to - move.from == 16)) {
             if (move.from - move.to == 16) {
                 state.enpassantSquare = move.from - 8;
@@ -419,6 +419,12 @@ namespace choco {
             } else {
                 state.enpassantSquare = 127; // impossible
             }
+        }
+
+        // en passant handling
+        if (move.to == state.enpassantSquare) {
+            int offset = state.activeColor == SIDE_WHITE ? -8 : 8;
+            removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to + offset);
         }
     }
 
