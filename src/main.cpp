@@ -13,11 +13,11 @@
 void runMoveGenTest() {
     choco::initBitboards(459371994, 2595412012);
 
-    choco::Board bb = choco::Board("8/8/8/8/8/4B3/8/8 w - - 0 1");
+    choco::Board bb = choco::Board("1PP5/8/2N5/4p3/3P4/8/5P2/8 w - - 0 1");
 
-    std::vector<choco::Move> bishopMoves = bb.generateWhiteBishopMoves();
+    std::vector<choco::Move> knightMoves = bb.generateWhiteKnightMoves();
     std::cout << std::endl;
-    for (const choco::Move& move : bishopMoves) {
+    for (const choco::Move& move : knightMoves) {
         std::cout << " - " << choco::indexToPrettyString(move.from) << " to " << choco::indexToPrettyString(move.to) << std::endl;
     }
 }
