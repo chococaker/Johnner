@@ -193,12 +193,12 @@ namespace choco {
         return iterations;
     }
 
-    uint64_t initRookBoards(uint64_t seed, uint64_t maxIterations) {
+    uint64_t initRookBoards(uint64_t seed) {
         static std::function<uint64_t(uint64_t, uint8_t)> attackGenerator = [](uint64_t bitboard, uint8_t index) -> uint64_t {
             uint64_t attackBitboard = walk(1, 0, bitboard, index)
-                 | walk(-1, 0, bitboard, index)
-                 | walk(0, 1, bitboard, index)
-                 | walk(0, -1, bitboard, index);
+                                    | walk(-1, 0, bitboard, index)
+                                    | walk(0, 1, bitboard, index)
+                                    | walk(0, -1, bitboard, index);
             
             return attackBitboard;
         };
@@ -221,9 +221,47 @@ namespace choco {
         return initMagics<12>(seed, ROOK_TBL, ROOK_ATTACKS, attackGenerator, maskGenerator);
     }
 
-    // returns number of attempts required to generate all magics
-    uint64_t initBitboards(uint64_t seed, uint64_t maxIterations) {
-        return initRookBoards(seed, maxIterations);
+    uint64_t initBishopBoards(uint64_t seed) {
+        static std::function<uint64_t(uint64_t, uint8_t)> attackGenerator = [](uint64_t bitboard, uint8_t index) -> uint64_t {
+            uint64_t attackBitboard = walk(1, 1, bitboard, index)
+                                    | walk(1, -1, bitboard, index)
+                                    | walk(-1, 1, bitboard, index)
+                                    | walk(-1, -1, bitboard, index);
+            return attackBitboard;
+        };
+
+        static std::function<uint64_t(uint8_t)> maskGenerator = [](uint8_t index) -> uint64_t {
+            uint64_t mask = walk(1, 1, 0, index)
+                          | walk(1, -1, 0, index)
+                          | walk(-1, 1, 0, index)
+                          | walk(-1, -1, 0, index);
+
+            mask &= (~BITBOARD_FILE_A);
+            mask &= (~BITBOARD_FILE_H);
+            mask &= (~BITBOARD_RANK_1);
+            mask &= (~BITBOARD_RANK_8);
+
+            mask &= ~(choco::getMask(index));
+
+            return mask;
+        };
+
+        return initMagics<9>(seed, BISHOP_TBL, BISHOP_ATTACKS, attackGenerator, maskGenerator);
+    }
+
+    // returns number of attempts required to generate magics
+    void initBitboards(uint64_t rookSeed, uint64_t bishopSeed) {
+        std::cout << "Initializing bitboards:" << std::endl;
+
+        std::cout << "  > Initializing rook moves..." << std::endl;
+        uint64_t rookIterations = initRookBoards(rookSeed);
+        std::cout << "    Finished (" << rookIterations << " iterations)" << std::endl;
+
+        std::cout << "  > Initializing bishop moves..." << std::endl;
+        uint64_t bishopIterations = initBishopBoards(bishopSeed);
+        std::cout << "    Finished (" << bishopIterations << " iterations)" << std::endl;
+
+        std::cout << "  > Finished all." << std::endl;
     }
 
     void GameState::toggleCastling(int color, int sidePiece) {
@@ -362,6 +400,24 @@ namespace choco {
             uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
             uint64_t stuff = ROOK_ATTACKS[rookIndex][hash] & (~getOccupiedBitboard(bitboards[SIDE_WHITE]));
             addOriginExtractedMoves(stuff, rookIndex, moves);
+        }
+
+        return moves;
+    }
+
+    std::vector<Move> Board::generateWhiteBishopMoves() const {
+        std::vector<Move> moves;
+
+        uint64_t bishopBoard = bitboards[SIDE_WHITE][BISHOP];
+        uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
+        while (bishopBoard) {
+            uint8_t bishopIndex = countTrailingZeros(bishopBoard);
+            bishopBoard &= ~getMask(bishopIndex);
+            const Magic& val = BISHOP_TBL[bishopIndex];
+            uint64_t relevantBitboard = occupiedBitboard & val.mask;
+            uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 9)) & ((1ULL << 9) - 1);
+            uint64_t stuff = BISHOP_ATTACKS[bishopIndex][hash] & (~getOccupiedBitboard(bitboards[SIDE_WHITE]));
+            addOriginExtractedMoves(stuff, bishopIndex, moves);
         }
 
         return moves;

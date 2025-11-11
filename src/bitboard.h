@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace choco {
-    uint64_t initBitboards(uint64_t seed, uint64_t maxIterations);
+    void initBitboards(uint64_t rookSeed, uint64_t bishopSeed);
 
     class Move {
     public:
@@ -38,6 +38,7 @@ namespace choco {
         void removePiece(uint8_t side, uint8_t piece, uint8_t index);
         void makeMove(const Move& move, uint8_t piece); // also switches turns, sets up game state
 
+        std::vector<Move> generateWhiteBishopMoves() const;
         std::vector<Move> generateWhiteRookMoves() const;
         std::vector<Move> generateWhitePawnMoves() const;
     };
