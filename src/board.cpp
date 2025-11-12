@@ -1,4 +1,4 @@
-#include "bitboard.h"
+#include "board.h"
 
 #include <cmath>
 #include <sstream>
@@ -23,7 +23,7 @@ namespace choco {
                 pos_start = pos_end + delim_len;
                 res.push_back(token);
             }
-            res.push_back(s.substr (pos_start));
+            res.push_back(s.substr(pos_start));
             return res;
         }
         
@@ -629,6 +629,23 @@ namespace choco {
         }
 
         return moves;
+    }
+
+    uint8_t Board::countPieces(uint8_t side, uint8_t piece) const {
+        uint64_t n = bitboards[side][piece];
+#if defined(__GNUC__) || defined(__clang__)
+        return __builtin_popcountll(n);
+#elif defined(_MSC_VER)
+        #include <intrin.h>
+        return __popcount64(n);
+#else
+        int count = 0;
+        while (n > 0) {
+            n &= (n - 1); 
+            count++;
+        }
+        return count;
+#endif
     }
 
     uint64_t Board::getAttacks(uint8_t color) const {

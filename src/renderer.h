@@ -1,7 +1,7 @@
 #pragma once
 
 #include <raylib.h>
-#include "bitboard.h"
+#include "board.h"
 #include "texture_manager.h"
 
 namespace choco {

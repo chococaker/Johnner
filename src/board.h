@@ -56,6 +56,8 @@ namespace choco {
         std::vector<Move> generateRookMoves() const;
         std::vector<Move> generatePawnMoves() const;
 
+        uint8_t countPieces(uint8_t side, uint8_t piece) const;
+
     private:
         void putPiece(uint8_t side, uint8_t piece, uint8_t index);
         void removePiece(uint8_t side, uint8_t piece, uint8_t index);

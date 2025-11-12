@@ -2,7 +2,7 @@
 
 #include "texture_manager.h"
 #include "renderer.h"
-#include "bitboard.h"
+#include "board.h"
 
 #include "macros.h"
 
@@ -35,14 +35,11 @@ void runRenderer() {
     InitWindow(screenWidth, screenHeight, "Johnner Chess Engine");
     SetTargetFPS(60);
 
-    choco::Board bb = choco::Board("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
+    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     
     choco::TextureMgr tMgr;
     choco::Renderer renderer = choco::Renderer(tMgr);
     renderer.init();
-
-    bb.makeMove({E1, C1}, KING);
-    bb.makeMove({E8, G8}, KING);
     
     while (!WindowShouldClose()) {
         renderer.render(bb);
@@ -50,7 +47,10 @@ void runRenderer() {
 }
 
 int main() {
-    runRenderer();
+    // runRenderer();
+    choco::Board bb;
+
+    std::cout << sizeof(bb) << std::endl;
 
     return 0;
 }
