@@ -126,6 +126,9 @@ namespace choco {
         uint64_t magic;
     };
 
+    uint64_t ROOK_SEED   = 459371994;
+    uint64_t BISHOP_SEED = 2595412012;
+
     // "plain" approach https://www.chessprogramming.org/Magic_Bitboards
     Magic ROOK_TBL[64] = {0};
     uint64_t ROOK_ATTACKS[64][4096] = {0};
@@ -323,15 +326,15 @@ namespace choco {
     }
 
     // returns number of attempts required to generate magics
-    void initBitboards(uint64_t rookSeed, uint64_t bishopSeed) {
+    void initBitboards() {
         std::cout << "Initializing bitboards:" << std::endl;
 
         std::cout << "  > Initializing rook moves...   ";
-        uint64_t rookIterations = initRookBoards(rookSeed);
+        uint64_t rookIterations = initRookBoards(ROOK_SEED);
         std::cout << "Done (" << rookIterations << " iterations)" << std::endl;
 
         std::cout << "  > Initializing bishop moves... ";
-        uint64_t bishopIterations = initBishopBoards(bishopSeed);
+        uint64_t bishopIterations = initBishopBoards(BISHOP_SEED);
         std::cout << "Done (" << bishopIterations << " iterations)" << std::endl;
 
         std::cout << "  > Initializing knight moves... ";
@@ -345,12 +348,17 @@ namespace choco {
         std::cout << "  > Finished all." << std::endl;
     }
 
-    void GameState::toggleCastling(int color, int sidePiece) {
+    void GameState::enableCastling(uint8_t color, uint8_t sidePiece) {
         uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
-        castling ^= mask;
+        castling |= mask;
     }
 
-    bool GameState::canCastle(int color, int sidePiece) {
+    void GameState::disableCastling(uint8_t color, uint8_t sidePiece) {
+        uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
+        castling &= mask;
+    }
+
+    bool GameState::canCastle(uint8_t color, uint8_t sidePiece) const {
         uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
         return (castling & mask) != 0;
     }
@@ -424,10 +432,10 @@ namespace choco {
 
         // castling
         const std::string& castlingString = fenParts[2];
-        if (castlingString.find('k')) state.toggleCastling(SIDE_WHITE, KING);
-        if (castlingString.find('q')) state.toggleCastling(SIDE_WHITE, QUEEN);
-        if (castlingString.find('K')) state.toggleCastling(SIDE_BLACK, KING);
-        if (castlingString.find('Q')) state.toggleCastling(SIDE_BLACK, QUEEN);
+        if (castlingString.find('k')) state.enableCastling(SIDE_WHITE, KING);
+        if (castlingString.find('q')) state.enableCastling(SIDE_WHITE, QUEEN);
+        if (castlingString.find('K')) state.enableCastling(SIDE_BLACK, KING);
+        if (castlingString.find('Q')) state.enableCastling(SIDE_BLACK, QUEEN);
 
         // en passant
         const std::string& passantString = fenParts[3];
@@ -454,9 +462,11 @@ namespace choco {
         removePiece(state.activeColor, piece, move.from);
         putPiece(state.activeColor, piece, move.to);
 
+        uint64_t illegalAttackSquares = 0; // squares that are not allowed be attacked if this move is played
+
         state.activeColor = !state.activeColor;
 
-        // double push handling
+        // double push
         if (piece == PAWN && (move.from - move.to == 16 || move.to - move.from == 16)) {
             if (move.from - move.to == 16) {
                 state.enpassantSquare = move.from - 8;
@@ -467,16 +477,52 @@ namespace choco {
             }
         }
 
-        // en passant handling
+        // en passant
         if (move.to == state.enpassantSquare) {
             int offset = state.activeColor == SIDE_WHITE ? -8 : 8;
             removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to + offset);
         }
 
-        // promotion handling
+        // promotion
         if (move.promotionType) {
             removePiece(state.activeColor, PAWN, move.to);
             putPiece(state.activeColor, move.promotionType, move.to);
+        }
+
+        illegalAttackSquares |= bitboards[state.activeColor][KING];
+
+        // castling spaghetti
+        uint64_t castleOriginSquare = state.activeColor == SIDE_WHITE ? E1 : E8;
+        if (piece == KING) {
+            if (move.to == A1 || move.to == H1) { // white
+                putPiece(state.activeColor, ROOK, move.from);
+                illegalAttackSquares |= getMask(E1);
+                if (move.to == A1) {
+                    illegalAttackSquares |= getMask(C1) | getMask(D1);
+                } else {
+                    illegalAttackSquares |= getMask(G1);
+                }
+            } else if (move.to == A8 || move.to == H8) {
+                putPiece(state.activeColor, ROOK, move.from);
+                illegalAttackSquares |= getMask(E8);
+                if (move.to == A8) {
+                    illegalAttackSquares |= getMask(C8) | getMask(D8);
+                } else {
+                    illegalAttackSquares |= getMask(F8);
+                }
+            } else { // king has moved; no more castling!!!!!!
+                state.disableCastling(SIDE_WHITE, KING);
+                state.disableCastling(SIDE_WHITE, QUEEN);
+            }
+        }
+
+        if (piece == ROOK) {
+            if (state.activeColor == SIDE_WHITE) {
+                if (move.from == A1 || move.to == A1) state.disableCastling(SIDE_WHITE, QUEEN);
+                if (move.from == H1 || move.to == H1) state.disableCastling(SIDE_WHITE, KING);
+                if (move.from == A8 || move.to == A8) state.disableCastling(SIDE_BLACK, QUEEN);
+                if (move.from == H8 || move.to == H8) state.disableCastling(SIDE_BLACK, KING);
+            }
         }
 
         // lazy move legality check
@@ -488,6 +534,14 @@ namespace choco {
         iterateIndicies(bitboards[state.activeColor][KING], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plKingMoveBB(index, state.activeColor), index, moves);
         });
+
+        // castling spaghetti
+        if (state.canCastle(state.activeColor, KING)) {
+            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, H1) : Move(E8, H8));
+        }
+        if (state.canCastle(state.activeColor, QUEEN)) {
+            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, H1) : Move(E8, H8));
+        }
         return moves;
     }
 

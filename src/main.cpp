@@ -11,7 +11,7 @@
 #include <limits>
 
 void runMoveGenTest() {
-    choco::initBitboards(459371994, 2595412012);
+    choco::initBitboards();
 
     choco::Board bb = choco::Board("8/8/8/8/3R4/8/8/8 w - - 0 1");
     bb.state.activeColor = SIDE_BLACK;

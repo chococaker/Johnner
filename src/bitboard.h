@@ -6,10 +6,14 @@
 #include <vector>
 
 namespace choco {
-    void initBitboards(uint64_t rookSeed, uint64_t bishopSeed);
+    void initBitboards(); // should be called before any move generation
 
     class Move {
     public:
+        Move(uint8_t from, uint8_t to) : from(from), to(to), promotionType(0) { }
+
+        Move(uint8_t from, uint8_t to, uint8_t promotionType) : from(from), to(to), promotionType(promotionType) { }
+
         uint8_t from;
         uint8_t to;
         uint8_t promotionType;
@@ -23,8 +27,9 @@ namespace choco {
         uint8_t enpassantSquare;
         uint16_t moveCount;
 
-        void toggleCastling(int color, int sidePiece);
-        bool canCastle(int color, int sidePiece);
+        void enableCastling(uint8_t color, uint8_t sidePiece);
+        void disableCastling(uint8_t color, uint8_t sidePiece);
+        bool canCastle(uint8_t color, uint8_t sidePiece) const;
     };
 
     class Board {
@@ -35,7 +40,14 @@ namespace choco {
         uint64_t bitboards[2][6];
         GameState state;
 
-        bool makeMove(const Move& move, uint8_t piece); // also switches turns, sets up game state. returns if move was legal
+        /**
+         * @brief Makes a move and sets up game state for the next turn. Move must be pseudo-legal.
+         * 
+         * @param move the pseudo-legal move
+         * @param piece what piece type to move
+         * @return whether the move was legal
+         */
+        bool makeMove(const Move& move, uint8_t piece);
 
         std::vector<Move> generateKingMoves() const;
         std::vector<Move> generateQueenMoves() const;
