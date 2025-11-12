@@ -13,11 +13,12 @@
 void runMoveGenTest() {
     choco::initBitboards(459371994, 2595412012);
 
-    choco::Board bb = choco::Board("1PP5/8/2N5/4p3/3P4/8/5P2/8 w - - 0 1");
+    choco::Board bb = choco::Board("8/8/8/8/3R4/8/8/8 w - - 0 1");
+    bb.state.activeColor = SIDE_BLACK;
 
-    std::vector<choco::Move> knightMoves = bb.generateWhiteKnightMoves();
+    std::vector<choco::Move> moves = bb.generateRookMoves();
     std::cout << std::endl;
-    for (const choco::Move& move : knightMoves) {
+    for (const choco::Move& move : moves) {
         std::cout << " - " << choco::indexToPrettyString(move.from) << " to " << choco::indexToPrettyString(move.to) << std::endl;
     }
 }
@@ -28,7 +29,7 @@ void runRenderer() {
     InitWindow(screenWidth, screenHeight, "Johnner Chess Engine");
     SetTargetFPS(60);
 
-    choco::Board bb = choco::Board("8/8/8/8/8/4B3/8/8 w - - 0 1");
+    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     
     choco::TextureMgr tMgr;
     choco::Renderer renderer = choco::Renderer(tMgr);

@@ -12,6 +12,7 @@ namespace choco {
     public:
         uint8_t from;
         uint8_t to;
+        uint8_t promotionType;
     };
 
     class GameState {
@@ -36,14 +37,24 @@ namespace choco {
 
         void makeMove(const Move& move, uint8_t piece); // also switches turns, sets up game state
 
-        std::vector<Move> generateWhiteKnightMoves() const;
-        std::vector<Move> generateWhiteBishopMoves() const;
-        std::vector<Move> generateWhiteRookMoves() const;
-        std::vector<Move> generateWhitePawnMoves() const;
+        std::vector<Move> generateKingMoves() const;
+        std::vector<Move> generateQueenMoves() const;
+        std::vector<Move> generateKnightMoves() const;
+        std::vector<Move> generateBishopMoves() const;
+        std::vector<Move> generateRookMoves() const;
+        std::vector<Move> generatePawnMoves() const;
 
     private:
         void putPiece(uint8_t side, uint8_t piece, uint8_t index);
         void removePiece(uint8_t side, uint8_t piece, uint8_t index);
+
+        uint64_t plKingMoveBB(uint8_t square, uint8_t color) const;
+        uint64_t plQueenMoveBB(uint8_t square, uint8_t color) const;
+        uint64_t plBishopMoveBB(uint8_t square, uint8_t color) const;
+        uint64_t plKnightMoveBB(uint8_t square, uint8_t color) const;
+        uint64_t plRookMoveBB(uint8_t square, uint8_t color) const;
+
+        uint64_t attacksToKing() const;
     };
 
     uint64_t getMask(uint8_t index);

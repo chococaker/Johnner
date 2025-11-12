@@ -113,6 +113,7 @@ namespace choco {
         uint64_t magic;
     };
 
+    // "plain" approach https://www.chessprogramming.org/Magic_Bitboards
     Magic ROOK_TBL[64] = {0};
     uint64_t ROOK_ATTACKS[64][4096] = {0};
 
@@ -196,60 +197,32 @@ namespace choco {
         return iterations;
     }
 
-    uint64_t initRookBoards(uint64_t seed) {
-        static std::function<uint64_t(uint64_t, uint8_t)> attackGenerator = [](uint64_t bitboard, uint8_t index) -> uint64_t {
-            uint64_t attackBitboard = walk(1, 0, bitboard, index)
-                                    | walk(-1, 0, bitboard, index)
-                                    | walk(0, 1, bitboard, index)
-                                    | walk(0, -1, bitboard, index);
-            
-            return attackBitboard;
+    void initKingBoards() {
+        static auto addIfInBounds = [](uint64_t& mask, int8_t rank, int8_t file) -> void {
+            if (rank >= 0 && file >= 0 && rank < 8 && file < 8) {
+                mask |= getMask(getIndex(rank, file));
+            }
         };
 
-        static std::function<uint64_t(uint8_t)> maskGenerator = [](uint8_t index) -> uint64_t {
-            uint64_t fileMask = choco::getFileMask(index % 8);
-            uint64_t rankMask = choco::getRankMask(index / 8);
-            uint64_t mask = fileMask | rankMask;
+        for (int i = 0; i < 64; i++) {
+            uint64_t mask = 0;
 
-            if (fileMask != BITBOARD_FILE_A) mask &= (~BITBOARD_FILE_A);
-            if (fileMask != BITBOARD_FILE_H) mask &= (~BITBOARD_FILE_H);
-            if (rankMask != BITBOARD_RANK_1) mask &= (~BITBOARD_RANK_1);
-            if (rankMask != BITBOARD_RANK_8) mask &= (~BITBOARD_RANK_8);
+            int8_t rank = static_cast<int8_t>(getRank(i));
+            int8_t file = static_cast<int8_t>(getFile(i));
 
-            mask &= ~(choco::getMask(index));
+            // really dirty but idc
+            // only run once
+            addIfInBounds(mask, rank - 1, file - 1);
+            addIfInBounds(mask, rank - 1, file + 0);
+            addIfInBounds(mask, rank - 1, file + 1);
+            addIfInBounds(mask, rank + 0, file + 1);
+            addIfInBounds(mask, rank + 1, file + 1);
+            addIfInBounds(mask, rank + 1, file - 0);
+            addIfInBounds(mask, rank + 1, file - 1);
+            addIfInBounds(mask, rank - 0, file - 1);
 
-            return mask;
-        };
-
-        return initMagics<12>(seed, ROOK_TBL, ROOK_ATTACKS, attackGenerator, maskGenerator);
-    }
-
-    uint64_t initBishopBoards(uint64_t seed) {
-        static std::function<uint64_t(uint64_t, uint8_t)> attackGenerator = [](uint64_t bitboard, uint8_t index) -> uint64_t {
-            uint64_t attackBitboard = walk(1, 1, bitboard, index)
-                                    | walk(1, -1, bitboard, index)
-                                    | walk(-1, 1, bitboard, index)
-                                    | walk(-1, -1, bitboard, index);
-            return attackBitboard;
-        };
-
-        static std::function<uint64_t(uint8_t)> maskGenerator = [](uint8_t index) -> uint64_t {
-            uint64_t mask = walk(1, 1, 0, index)
-                          | walk(1, -1, 0, index)
-                          | walk(-1, 1, 0, index)
-                          | walk(-1, -1, 0, index);
-
-            mask &= (~BITBOARD_FILE_A);
-            mask &= (~BITBOARD_FILE_H);
-            mask &= (~BITBOARD_RANK_1);
-            mask &= (~BITBOARD_RANK_8);
-
-            mask &= ~(choco::getMask(index));
-
-            return mask;
-        };
-
-        return initMagics<9>(seed, BISHOP_TBL, BISHOP_ATTACKS, attackGenerator, maskGenerator);
+            KING_ATTACKS[i] = mask;
+        }
     }
 
     void initKnightBoards() {
@@ -280,21 +253,81 @@ namespace choco {
         }
     }
 
+    uint64_t initBishopBoards(uint64_t seed) {
+        static std::function<uint64_t(uint64_t, uint8_t)> attackGenerator = [](uint64_t bitboard, uint8_t index) -> uint64_t {
+            uint64_t attackBitboard = walk(1, 1, bitboard, index)
+                                    | walk(1, -1, bitboard, index)
+                                    | walk(-1, 1, bitboard, index)
+                                    | walk(-1, -1, bitboard, index);
+            return attackBitboard;
+        };
+
+        static std::function<uint64_t(uint8_t)> maskGenerator = [](uint8_t index) -> uint64_t {
+            uint64_t mask = walk(1, 1, 0, index)
+                          | walk(1, -1, 0, index)
+                          | walk(-1, 1, 0, index)
+                          | walk(-1, -1, 0, index);
+
+            mask &= (~BITBOARD_FILE_A);
+            mask &= (~BITBOARD_FILE_H);
+            mask &= (~BITBOARD_RANK_1);
+            mask &= (~BITBOARD_RANK_8);
+
+            mask &= ~(choco::getMask(index));
+
+            return mask;
+        };
+
+        return initMagics<9>(seed, BISHOP_TBL, BISHOP_ATTACKS, attackGenerator, maskGenerator);
+    }
+
+    uint64_t initRookBoards(uint64_t seed) {
+        static std::function<uint64_t(uint64_t, uint8_t)> attackGenerator = [](uint64_t bitboard, uint8_t index) -> uint64_t {
+            uint64_t attackBitboard = walk(1, 0, bitboard, index)
+                                    | walk(-1, 0, bitboard, index)
+                                    | walk(0, 1, bitboard, index)
+                                    | walk(0, -1, bitboard, index);
+            
+            return attackBitboard;
+        };
+
+        static std::function<uint64_t(uint8_t)> maskGenerator = [](uint8_t index) -> uint64_t {
+            uint64_t fileMask = choco::getFileMask(index % 8);
+            uint64_t rankMask = choco::getRankMask(index / 8);
+            uint64_t mask = fileMask | rankMask;
+
+            if (fileMask != BITBOARD_FILE_A) mask &= (~BITBOARD_FILE_A);
+            if (fileMask != BITBOARD_FILE_H) mask &= (~BITBOARD_FILE_H);
+            if (rankMask != BITBOARD_RANK_1) mask &= (~BITBOARD_RANK_1);
+            if (rankMask != BITBOARD_RANK_8) mask &= (~BITBOARD_RANK_8);
+
+            mask &= ~(choco::getMask(index));
+
+            return mask;
+        };
+
+        return initMagics<12>(seed, ROOK_TBL, ROOK_ATTACKS, attackGenerator, maskGenerator);
+    }
+
     // returns number of attempts required to generate magics
     void initBitboards(uint64_t rookSeed, uint64_t bishopSeed) {
         std::cout << "Initializing bitboards:" << std::endl;
 
-        std::cout << "  > Initializing rook moves..." << std::endl;
+        std::cout << "  > Initializing rook moves...   ";
         uint64_t rookIterations = initRookBoards(rookSeed);
-        std::cout << "    Finished (" << rookIterations << " iterations)" << std::endl;
+        std::cout << "Done (" << rookIterations << " iterations)" << std::endl;
 
-        std::cout << "  > Initializing bishop moves..." << std::endl;
+        std::cout << "  > Initializing bishop moves... ";
         uint64_t bishopIterations = initBishopBoards(bishopSeed);
-        std::cout << "    Finished (" << bishopIterations << " iterations)" << std::endl;
+        std::cout << "Done (" << bishopIterations << " iterations)" << std::endl;
 
-        std::cout << "  > Initializing knight moves..." << std::endl;
+        std::cout << "  > Initializing knight moves... ";
         initKnightBoards();
-        std::cout << "    Finished" << std::endl;
+        std::cout << "Done" << std::endl;
+
+        std::cout << "  > Initializing king moves...   ";
+        initKingBoards();
+        std::cout << "Done" << std::endl;
 
         std::cout << "  > Finished all." << std::endl;
     }
@@ -426,89 +459,164 @@ namespace choco {
             int offset = state.activeColor == SIDE_WHITE ? -8 : 8;
             removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to + offset);
         }
+
+        // promotion handling
     }
 
-    std::vector<Move> Board::generateWhiteKnightMoves() const {
+    std::vector<Move> Board::generateKingMoves() const {
         std::vector<Move> moves;
 
-        uint64_t knightBoard = bitboards[SIDE_WHITE][KNIGHT];
-        uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
+        uint64_t kingBoard = bitboards[state.activeColor][KING];
+        while (kingBoard) {
+            uint8_t kingIndex = countTrailingZeros(kingBoard);
+            kingBoard &= ~getMask(kingIndex);
+            addOriginExtractedMoves(plKingMoveBB(kingIndex, state.activeColor), kingIndex, moves);
+        }
+
+        return moves;
+    }
+
+    std::vector<Move> Board::generateQueenMoves() const {
+        std::vector<Move> moves;
+
+        uint64_t queenBoard = bitboards[state.activeColor][QUEEN];
+        while (queenBoard) {
+            uint8_t queenIndex = countTrailingZeros(queenBoard);
+            queenBoard &= ~getMask(queenIndex);
+            addOriginExtractedMoves(plQueenMoveBB(queenIndex, state.activeColor), queenIndex, moves);
+        }
+
+        return moves;
+    }
+
+    std::vector<Move> Board::generateKnightMoves() const {
+        std::vector<Move> moves;
+
+        uint64_t knightBoard = bitboards[state.activeColor][KNIGHT];
         while (knightBoard) {
             uint8_t knightIndex = countTrailingZeros(knightBoard);
             knightBoard &= ~getMask(knightIndex);
-            uint64_t stuff = KNIGHT_ATTACKS[knightIndex] &= (~getOccupiedBitboard(bitboards[SIDE_WHITE]));
-            addOriginExtractedMoves(stuff, knightIndex, moves);
+            addOriginExtractedMoves(plKnightMoveBB(knightIndex, state.activeColor), knightIndex, moves);
         }
 
         return moves;
     }
 
-    std::vector<Move> Board::generateWhiteBishopMoves() const {
+    std::vector<Move> Board::generateBishopMoves() const {
         std::vector<Move> moves;
 
-        uint64_t bishopBoard = bitboards[SIDE_WHITE][BISHOP];
-        uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
+        uint64_t bishopBoard = bitboards[state.activeColor][BISHOP];
         while (bishopBoard) {
             uint8_t bishopIndex = countTrailingZeros(bishopBoard);
             bishopBoard &= ~getMask(bishopIndex);
-            const Magic& val = BISHOP_TBL[bishopIndex];
-            uint64_t relevantBitboard = occupiedBitboard & val.mask;
-            uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 9)) & ((1ULL << 9) - 1);
-            uint64_t stuff = BISHOP_ATTACKS[bishopIndex][hash] & (~getOccupiedBitboard(bitboards[SIDE_WHITE]));
-            addOriginExtractedMoves(stuff, bishopIndex, moves);
+            addOriginExtractedMoves(plBishopMoveBB(bishopIndex, state.activeColor), bishopIndex, moves);
         }
 
         return moves;
     }
 
-    std::vector<Move> Board::generateWhiteRookMoves() const {
+    std::vector<Move> Board::generateRookMoves() const {
         std::vector<Move> moves;
 
-        uint64_t rookBoard = bitboards[SIDE_WHITE][ROOK];
-        uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
+        uint64_t rookBoard = bitboards[state.activeColor][ROOK];
         while (rookBoard) {
             uint8_t rookIndex = countTrailingZeros(rookBoard);
             rookBoard &= ~getMask(rookIndex);
-            const Magic& val = ROOK_TBL[rookIndex];
-            uint64_t relevantBitboard = occupiedBitboard & val.mask;
-            uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
-            uint64_t stuff = ROOK_ATTACKS[rookIndex][hash] & (~getOccupiedBitboard(bitboards[SIDE_WHITE]));
-            addOriginExtractedMoves(stuff, rookIndex, moves);
+            addOriginExtractedMoves(plRookMoveBB(rookIndex, state.activeColor), rookIndex, moves);
         }
 
         return moves;
     }
 
-    std::vector<Move> Board::generateWhitePawnMoves() const {
-        if (!bitboards[SIDE_WHITE][PAWN]) return std::vector<Move>();
+    std::vector<Move> Board::generatePawnMoves() const {
+        int shiftFactor = state.activeColor == SIDE_WHITE ? 1 : -1;
+
+        if (!bitboards[state.activeColor][PAWN]) return std::vector<Move>();
 
         std::vector<Move> moves;
 
+        uint8_t color = state.activeColor;
+        static const auto shiftLeftBasedOnColor = [color](uint64_t val, uint8_t amount) -> uint64_t {
+            if (color == SIDE_WHITE) return val << amount;
+            else return val >> amount;
+        };
+
         // pushes
         uint64_t emptySquares = getEmptyBitboard(bitboards);
-        uint64_t pushedPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) << 8) & emptySquares;
-        uint64_t doublePushedPawns = ((pushedPawns & BITBOARD_RANK_3) << 8) & emptySquares;
-        addOffsetExtractedMoves(pushedPawns, 8, moves);
-        addOffsetExtractedMoves(doublePushedPawns, 16, moves);
+        uint64_t promoterMask = (color == SIDE_WHITE) ? BITBOARD_RANK_7 : BITBOARD_RANK_1;
+        uint64_t pushedPawns = shiftLeftBasedOnColor(bitboards[color][PAWN] & ~promoterMask, 8) & emptySquares;
+        uint64_t doublePushRankMask = (color == SIDE_WHITE) ? BITBOARD_RANK_3 : BITBOARD_RANK_6;
+        uint64_t doublePushedPawns = shiftLeftBasedOnColor(pushedPawns & doublePushRankMask, 8) & emptySquares;
+        addOffsetExtractedMoves(pushedPawns, 8 * shiftFactor, moves);
+        addOffsetExtractedMoves(doublePushedPawns, 16 * shiftFactor, moves);
 
         // captures
-        uint64_t blackSquares = getOccupiedBitboard(bitboards[SIDE_BLACK]);
-        uint64_t captureLeftPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & blackSquares) << 7;
-        uint64_t captureRightPawns = ((bitboards[SIDE_WHITE][PAWN] & ~BITBOARD_RANK_7) & blackSquares) << 9;
-        addOffsetExtractedMoves(captureLeftPawns, 7, moves);
-        addOffsetExtractedMoves(captureRightPawns, 9, moves);
+        uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
+        uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
+        uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
+        uint64_t captureLPawns = shiftLeftBasedOnColor(bitboards[color][PAWN] & ~peripheralPawnsL, 7) & oppSquares;
+        uint64_t captureRPawns = shiftLeftBasedOnColor(bitboards[color][PAWN] & ~peripheralPawnsR, 9) & oppSquares;
+        addOffsetExtractedMoves(captureLPawns, 7 * shiftFactor, moves);
+        addOffsetExtractedMoves(captureRPawns, 9 * shiftFactor, moves);
 
         // en passant
         if (state.enpassantSquare < 64) {
-            uint8_t passantLeftPawnIndex = state.enpassantSquare - 9;
-            uint8_t passantRightPawnIndex = state.enpassantSquare - 7;
-            addOffsetExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantLeftPawnIndex), -9, moves);
-            addOffsetExtractedMoves(bitboards[SIDE_WHITE][PAWN] & getMask(passantRightPawnIndex), -7, moves);
+            uint8_t passantLeftPawnIndex = state.enpassantSquare - 9 * shiftFactor;
+            uint8_t passantRightPawnIndex = state.enpassantSquare - 7 * shiftFactor;
+            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantLeftPawnIndex), -9 * shiftFactor, moves);
+            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantRightPawnIndex), -7 * shiftFactor, moves);
+        }
+
+        // promotion
+        uint64_t promoters = bitboards[color][PAWN] & promoterMask;
+        while (promoters != 0) {
+            uint8_t index = countTrailingZeros(promoters);
+            promoters &= ~(1ULL << index);
+            Move move = { index, index + 8 * shiftFactor };
+            moves.push_back(move);
         }
 
         return moves;
     }
 
+    uint64_t Board::plKingMoveBB(uint8_t square, uint8_t color) const {
+        return KING_ATTACKS[square] &= (~getOccupiedBitboard(bitboards[color]));
+    }
+
+    uint64_t Board::plQueenMoveBB(uint8_t square, uint8_t color) const {
+        uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
+
+        const Magic& rookVal = ROOK_TBL[square];
+        uint64_t rookRelevantBitboard = occupiedBitboard & rookVal.mask;
+        uint16_t rookHash = ((rookRelevantBitboard * rookVal.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
+        uint64_t rookStuff = ROOK_ATTACKS[square][rookHash] & (~getOccupiedBitboard(bitboards[color]));
+
+        const Magic& bishopVal = BISHOP_TBL[square];
+        uint64_t bishopRelevantBitboard = occupiedBitboard & bishopVal.mask;
+        uint16_t bishopHash = ((bishopRelevantBitboard * bishopVal.magic) >> (64 - 9)) & ((1ULL << 9) - 1);
+        uint64_t bishopStuff = BISHOP_ATTACKS[square][bishopHash] & (~getOccupiedBitboard(bitboards[color]));
+
+        return rookStuff | bishopStuff;
+    }
+
+    uint64_t Board::plBishopMoveBB(uint8_t square, uint8_t color) const {
+        const Magic& val = BISHOP_TBL[square];
+        uint64_t relevantBitboard = getOccupiedBitboard(bitboards) & val.mask;
+        uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 9)) & ((1ULL << 9) - 1);
+        return BISHOP_ATTACKS[square][hash] & (~getOccupiedBitboard(bitboards[color]));
+    }
+
+    uint64_t Board::plKnightMoveBB(uint8_t square, uint8_t color) const {
+        return KNIGHT_ATTACKS[square] &= (~getOccupiedBitboard(bitboards[color]));
+    }
+    
+    uint64_t Board::plRookMoveBB(uint8_t square, uint8_t color) const {
+        const Magic& val = ROOK_TBL[square];
+        uint64_t relevantBitboard = getOccupiedBitboard(bitboards) & val.mask;
+        uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
+        return ROOK_ATTACKS[square][hash] & (~getOccupiedBitboard(bitboards[color]));
+    }
+    
     uint64_t getMask(uint8_t index) {
         return 1ULL << index;
     }
