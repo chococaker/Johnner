@@ -365,7 +365,7 @@ namespace choco {
 
     Board::Board() {
         memset(bitboards, 0, sizeof(bitboards));
-        state = { SIDE_WHITE, 15, 0, 0, 0 };
+        state = { SIDE_WHITE, 0, 0, 0, 0 };
     }
 
     Board::Board(const std::string& fen) : Board() {
@@ -432,10 +432,10 @@ namespace choco {
 
         // castling
         const std::string& castlingString = fenParts[2];
-        if (castlingString.find('k')) state.enableCastling(SIDE_WHITE, KING);
-        if (castlingString.find('q')) state.enableCastling(SIDE_WHITE, QUEEN);
-        if (castlingString.find('K')) state.enableCastling(SIDE_BLACK, KING);
-        if (castlingString.find('Q')) state.enableCastling(SIDE_BLACK, QUEEN);
+        if (castlingString.find('k') != std::string::npos) state.enableCastling(SIDE_WHITE, KING);
+        if (castlingString.find('q') != std::string::npos) state.enableCastling(SIDE_WHITE, QUEEN);
+        if (castlingString.find('K') != std::string::npos) state.enableCastling(SIDE_BLACK, KING);
+        if (castlingString.find('Q') != std::string::npos) state.enableCastling(SIDE_BLACK, QUEEN);
 
         // en passant
         const std::string& passantString = fenParts[3];
@@ -464,8 +464,6 @@ namespace choco {
 
         uint64_t illegalAttackSquares = 0; // squares that are not allowed be attacked if this move is played
 
-        state.activeColor = !state.activeColor;
-
         // double push
         if (piece == PAWN && (move.from - move.to == 16 || move.to - move.from == 16)) {
             if (move.from - move.to == 16) {
@@ -492,41 +490,46 @@ namespace choco {
         illegalAttackSquares |= bitboards[state.activeColor][KING];
 
         // castling spaghetti
-        uint64_t castleOriginSquare = state.activeColor == SIDE_WHITE ? E1 : E8;
-        if (piece == KING) {
-            if (move.to == A1 || move.to == H1) { // white
-                putPiece(state.activeColor, ROOK, move.from);
+        if (piece == KING && (move.from == E1 || move.from == E8)) {
+            if (move.to == C1 || move.to == G1) { // white
                 illegalAttackSquares |= getMask(E1);
-                if (move.to == A1) {
-                    illegalAttackSquares |= getMask(C1) | getMask(D1);
+                if (move.to == C1) {
+                    illegalAttackSquares |= getMask(D1);
+                    removePiece(SIDE_WHITE, ROOK, A1);
+                    putPiece(SIDE_WHITE, ROOK, D1);
                 } else {
                     illegalAttackSquares |= getMask(G1);
+                    removePiece(SIDE_WHITE, ROOK, H1);
+                    putPiece(SIDE_WHITE, ROOK, F1);
                 }
-            } else if (move.to == A8 || move.to == H8) {
-                putPiece(state.activeColor, ROOK, move.from);
+            } else if (move.to == C8 || move.to == G8) {
                 illegalAttackSquares |= getMask(E8);
-                if (move.to == A8) {
-                    illegalAttackSquares |= getMask(C8) | getMask(D8);
+                if (move.to == C8) {
+                    putPiece(state.activeColor, ROOK, move.from);
+                    illegalAttackSquares |= getMask(D8);
+                    removePiece(SIDE_BLACK, ROOK, A8);
+                    putPiece(SIDE_BLACK, ROOK, D8);
                 } else {
                     illegalAttackSquares |= getMask(F8);
+                    removePiece(SIDE_BLACK, ROOK, H8);
+                    putPiece(SIDE_BLACK, ROOK, F8);
                 }
-            } else { // king has moved; no more castling!!!!!!
-                state.disableCastling(SIDE_WHITE, KING);
-                state.disableCastling(SIDE_WHITE, QUEEN);
             }
+            // king has moved; no more castling!!!!!!
+            state.disableCastling(state.activeColor, KING);
+            state.disableCastling(state.activeColor, QUEEN);
         }
 
-        if (piece == ROOK) {
-            if (state.activeColor == SIDE_WHITE) {
-                if (move.from == A1 || move.to == A1) state.disableCastling(SIDE_WHITE, QUEEN);
-                if (move.from == H1 || move.to == H1) state.disableCastling(SIDE_WHITE, KING);
-                if (move.from == A8 || move.to == A8) state.disableCastling(SIDE_BLACK, QUEEN);
-                if (move.from == H8 || move.to == H8) state.disableCastling(SIDE_BLACK, KING);
-            }
-        }
+        // rook has been taken OR moved
+        if (move.from == A1 || move.to == A1) state.disableCastling(SIDE_WHITE, QUEEN);
+        if (move.from == H1 || move.to == H1) state.disableCastling(SIDE_WHITE, KING);
+        if (move.from == A8 || move.to == A8) state.disableCastling(SIDE_BLACK, QUEEN);
+        if (move.from == H8 || move.to == H8) state.disableCastling(SIDE_BLACK, KING);
+
+        state.activeColor = !state.activeColor;
 
         // lazy move legality check
-        return getAttacks(OPPOSITE_SIDE(state.activeColor) & bitboards[state.activeColor][KING]);
+        return getAttacks(state.activeColor & bitboards[state.activeColor][KING]);
     }
 
     std::vector<Move> Board::generateKingMoves() const {
@@ -537,11 +540,12 @@ namespace choco {
 
         // castling spaghetti
         if (state.canCastle(state.activeColor, KING)) {
-            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, H1) : Move(E8, H8));
+            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, G1) : Move(E8, G8));
         }
         if (state.canCastle(state.activeColor, QUEEN)) {
-            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, H1) : Move(E8, H8));
+            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, B1) : Move(E8, B8));
         }
+
         return moves;
     }
 

@@ -13,14 +13,20 @@
 void runMoveGenTest() {
     choco::initBitboards();
 
-    choco::Board bb = choco::Board("8/8/8/8/3R4/8/8/8 w - - 0 1");
-    bb.state.activeColor = SIDE_BLACK;
+    choco::Board bb = choco::Board("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
 
-    std::vector<choco::Move> moves = bb.generateRookMoves();
+    std::vector<choco::Move> moves = bb.generateKingMoves();
     std::cout << std::endl;
+    uint64_t bitboard = 0;
     for (const choco::Move& move : moves) {
         std::cout << " - " << choco::indexToPrettyString(move.from) << " to " << choco::indexToPrettyString(move.to) << std::endl;
+        bitboard |= choco::getMask(move.to);
     }
+
+    bb.makeMove({E1, H1}, KING);
+
+    std::cout << choco::bitboardToPrettyString(bitboard) << std::endl;
+    std::cout << std::to_string(bb.state.castling);
 }
 
 void runRenderer() {
@@ -29,11 +35,14 @@ void runRenderer() {
     InitWindow(screenWidth, screenHeight, "Johnner Chess Engine");
     SetTargetFPS(60);
 
-    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    choco::Board bb = choco::Board("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
     
     choco::TextureMgr tMgr;
     choco::Renderer renderer = choco::Renderer(tMgr);
     renderer.init();
+
+    bb.makeMove({E1, C1}, KING);
+    bb.makeMove({E8, G8}, KING);
     
     while (!WindowShouldClose()) {
         renderer.render(bb);
@@ -41,7 +50,7 @@ void runRenderer() {
 }
 
 int main() {
-    runMoveGenTest();
+    runRenderer();
 
     return 0;
 }
