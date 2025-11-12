@@ -461,6 +461,10 @@ namespace choco {
         }
 
         // promotion handling
+        if (move.promotionType) {
+            removePiece(state.activeColor, PAWN, move.to);
+            putPiece(state.activeColor, move.promotionType, move.to);
+        }
     }
 
     std::vector<Move> Board::generateKingMoves() const {
@@ -572,7 +576,10 @@ namespace choco {
         while (promoters != 0) {
             uint8_t index = countTrailingZeros(promoters);
             promoters &= ~(1ULL << index);
-            Move move = { index, index + 8 * shiftFactor };
+            Move move = { index, index + 8 * shiftFactor, QUEEN };
+            Move move = { index, index + 8 * shiftFactor, KNIGHT };
+            Move move = { index, index + 8 * shiftFactor, ROOK };
+            Move move = { index, index + 8 * shiftFactor, BISHOP };
             moves.push_back(move);
         }
 
