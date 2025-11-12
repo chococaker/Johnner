@@ -35,7 +35,7 @@ namespace choco {
         uint64_t bitboards[2][6];
         GameState state;
 
-        void makeMove(const Move& move, uint8_t piece); // also switches turns, sets up game state
+        bool makeMove(const Move& move, uint8_t piece); // also switches turns, sets up game state. returns if move was legal
 
         std::vector<Move> generateKingMoves() const;
         std::vector<Move> generateQueenMoves() const;
@@ -54,7 +54,7 @@ namespace choco {
         uint64_t plKnightMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plRookMoveBB(uint8_t square, uint8_t color) const;
 
-        uint64_t attacksToKing() const;
+        uint64_t getAttacks(uint8_t color) const; // get attacks that a color is doing
     };
 
     uint64_t getMask(uint8_t index);
