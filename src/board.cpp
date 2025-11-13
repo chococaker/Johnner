@@ -45,20 +45,20 @@ namespace choco {
             #endif
         }
 
-        void addOffsetExtractedMoves(uint64_t bitboard, uint8_t offset, std::vector<Move>& moveVec) {
+        void addOffsetExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t offset, std::vector<Move>& moveVec) {
             while (bitboard != 0) {
                 uint8_t index = countTrailingZeros(bitboard);
                 bitboard &= ~(1ULL << index);
-                Move move = { index - offset, index };
+                Move move = { piece, index - offset, index };
                 moveVec.push_back(move);
             }
         }
 
-        void addOriginExtractedMoves(uint64_t bitboard, uint8_t originIndex, std::vector<Move>& moveVec) {
+        void addOriginExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t originIndex, std::vector<Move>& moveVec) {
             while (bitboard != 0) {
                 uint8_t index = countTrailingZeros(bitboard);
                 bitboard &= ~(1ULL << index);
-                Move move = { originIndex, index };
+                Move move = { piece, originIndex, index };
                 moveVec.push_back(move);
             }
         }
@@ -458,39 +458,52 @@ namespace choco {
     void Board::removePiece(uint8_t side, uint8_t piece, uint8_t index) {
         bitboards[side][piece] ^= (1ULL << index);
     }
-    bool Board::makeMove(const Move& move, uint8_t piece) {
-        removePiece(state.activeColor, piece, move.from);
-        putPiece(state.activeColor, piece, move.to);
+    bool Board::makeMove(const Move& move) {
+        removePiece(state.activeColor, move.pieceType, move.from);
+        putPiece(state.activeColor, move.pieceType, move.to);
 
-        uint64_t illegalAttackSquares = 0; // squares that are not allowed be attacked if this move is played
+        state.halfMoveClock++;
 
-        // double push
-        if (piece == PAWN && (move.from - move.to == 16 || move.to - move.from == 16)) {
-            if (move.from - move.to == 16) {
-                state.enpassantSquare = move.from - 8;
-            } else if (move.to - move.from == 16) {
-                state.enpassantSquare = move.from + 8;
-            } else {
-                state.enpassantSquare = 127; // impossible
+        // capture
+        for (uint8_t i = 0; i < 6; i++) {
+            uint64_t initialVal = bitboards[OPPOSITE_SIDE(state.activeColor)][i];
+            bitboards[OPPOSITE_SIDE(state.activeColor)][i] &= ~getMask(move.to);
+            if (initialVal != bitboards[OPPOSITE_SIDE(state.activeColor)][i]) {
+                state.halfMoveClock = 0;
             }
         }
 
-        // en passant
-        if (move.to == state.enpassantSquare) {
-            int offset = state.activeColor == SIDE_WHITE ? -8 : 8;
-            removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to + offset);
-        }
+        uint64_t illegalAttackSquares = 0; // squares that are not allowed be attacked if this move is played
 
-        // promotion
-        if (move.promotionType) {
-            removePiece(state.activeColor, PAWN, move.to);
-            putPiece(state.activeColor, move.promotionType, move.to);
-        }
+        if (move.pieceType == PAWN) {
+            state.halfMoveClock = 0;
+            
+            // double push
+            if (move.from - move.to == 16 || move.to - move.from == 16) {
+                if (move.from - move.to == 16) {
+                    state.enpassantSquare = move.from - 8;
+                } else if (move.to - move.from == 16) {
+                    state.enpassantSquare = move.from + 8;
+                } else {
+                    state.enpassantSquare = 127; // impossible
+                }
+            }
 
-        illegalAttackSquares |= bitboards[state.activeColor][KING];
+            // en passant
+            if (move.to == state.enpassantSquare) {
+                int offset = state.activeColor == SIDE_WHITE ? -8 : 8;
+                removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to + offset);
+            }
+
+            // promotion
+            if (move.promotionType) {
+                removePiece(state.activeColor, PAWN, move.to);
+                putPiece(state.activeColor, move.promotionType, move.to);
+            }
+        }
 
         // castling spaghetti
-        if (piece == KING && (move.from == E1 || move.from == E8)) {
+        if (move.pieceType == KING && (move.from == E1 || move.from == E8)) {
             if (move.to == C1 || move.to == G1) { // white
                 illegalAttackSquares |= getMask(E1);
                 if (move.to == C1) {
@@ -528,65 +541,59 @@ namespace choco {
 
         state.activeColor = !state.activeColor;
 
-        // lazy move legality check
-        return getAttacks(state.activeColor & bitboards[state.activeColor][KING]);
+        // lazy move legality check. does not check for king attack as engine will avoid moves like that at all costs
+        return !(getAttacks(state.activeColor) & illegalAttackSquares);
     }
 
-    std::vector<Move> Board::generateKingMoves() const {
+    std::vector<Move> Board::generatePLMoves() const {
         std::vector<Move> moves;
+        addRookMoves(moves);
+        addKingMoves(moves);
+        return moves;
+    }
+
+    void Board::addKingMoves(std::vector<Move>& moves) const {
         iterateIndicies(bitboards[state.activeColor][KING], [this, &moves](uint8_t index) -> void {
-            addOriginExtractedMoves(plKingMoveBB(index, state.activeColor), index, moves);
+            addOriginExtractedMoves(plKingMoveBB(index, state.activeColor), KING, index, moves);
         });
 
         // castling spaghetti
         if (state.canCastle(state.activeColor, KING)) {
-            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, G1) : Move(E8, G8));
+            moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, G1) : Move(KING, E8, G8));
         }
         if (state.canCastle(state.activeColor, QUEEN)) {
-            moves.push_back(state.activeColor == SIDE_WHITE ? Move(E1, B1) : Move(E8, B8));
+            moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, B1) : Move(KING, E8, B8));
         }
-
-        return moves;
     }
 
-    std::vector<Move> Board::generateQueenMoves() const {
-        std::vector<Move> moves;
+    void Board::addQueenMoves(std::vector<Move>& moves) const {
         iterateIndicies(bitboards[state.activeColor][QUEEN], [this, &moves](uint8_t index) -> void {
-            addOriginExtractedMoves(plQueenMoveBB(index, state.activeColor), index, moves);
+            addOriginExtractedMoves(plQueenMoveBB(index, state.activeColor), QUEEN, index, moves);
         });
-        return moves;
     }
 
-    std::vector<Move> Board::generateKnightMoves() const {
-        std::vector<Move> moves;
+    void Board::addKnightMoves(std::vector<Move>& moves) const {
         iterateIndicies(bitboards[state.activeColor][KNIGHT], [this, &moves](uint8_t index) -> void {
-            addOriginExtractedMoves(plKnightMoveBB(index, state.activeColor), index, moves);
+            addOriginExtractedMoves(plKnightMoveBB(index, state.activeColor), KNIGHT, index, moves);
         });
-        return moves;
     }
 
-    std::vector<Move> Board::generateBishopMoves() const {
-        std::vector<Move> moves;
+    void Board::addBishopMoves(std::vector<Move>& moves) const {
         iterateIndicies(bitboards[state.activeColor][BISHOP], [this, &moves](uint8_t index) -> void {
-            addOriginExtractedMoves(plBishopMoveBB(index, state.activeColor), index, moves);
+            addOriginExtractedMoves(plBishopMoveBB(index, state.activeColor), ROOK, index, moves);
         });
-        return moves;
     }
 
-    std::vector<Move> Board::generateRookMoves() const {
-        std::vector<Move> moves;
+    void Board::addRookMoves(std::vector<Move>& moves) const {
         iterateIndicies(bitboards[state.activeColor][ROOK], [this, &moves](uint8_t index) -> void {
-            addOriginExtractedMoves(plRookMoveBB(index, state.activeColor), index, moves);
+            addOriginExtractedMoves(plRookMoveBB(index, state.activeColor), ROOK, index, moves);
         });
-        return moves;
     }
 
-    std::vector<Move> Board::generatePawnMoves() const {
+    void Board::addPawnMoves(std::vector<Move>& moves) const {
         int shiftFactor = state.activeColor == SIDE_WHITE ? 1 : -1;
 
-        if (!bitboards[state.activeColor][PAWN]) return std::vector<Move>();
-
-        std::vector<Move> moves;
+        if (!bitboards[state.activeColor][PAWN]) return;
 
         uint8_t color = state.activeColor;
 
@@ -596,8 +603,8 @@ namespace choco {
         uint64_t pushedPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~promoterMask, 8) & emptySquares;
         uint64_t doublePushRankMask = (color == SIDE_WHITE) ? BITBOARD_RANK_3 : BITBOARD_RANK_6;
         uint64_t doublePushedPawns = shiftLeftBasedOnColor(color, pushedPawns & doublePushRankMask, 8) & emptySquares;
-        addOffsetExtractedMoves(pushedPawns, 8 * shiftFactor, moves);
-        addOffsetExtractedMoves(doublePushedPawns, 16 * shiftFactor, moves);
+        addOffsetExtractedMoves(pushedPawns, PAWN, 8 * shiftFactor, moves);
+        addOffsetExtractedMoves(doublePushedPawns, PAWN, 16 * shiftFactor, moves);
 
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
@@ -605,15 +612,15 @@ namespace choco {
         uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
         uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsL, 7) & oppSquares;
         uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 9) & oppSquares;
-        addOffsetExtractedMoves(captureLPawns, 7 * shiftFactor, moves);
-        addOffsetExtractedMoves(captureRPawns, 9 * shiftFactor, moves);
+        addOffsetExtractedMoves(captureLPawns, PAWN, 7 * shiftFactor, moves);
+        addOffsetExtractedMoves(captureRPawns, PAWN, 9 * shiftFactor, moves);
 
         // en passant
         if (state.enpassantSquare < 64) {
             uint8_t passantLeftPawnIndex = state.enpassantSquare - 9 * shiftFactor;
             uint8_t passantRightPawnIndex = state.enpassantSquare - 7 * shiftFactor;
-            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantLeftPawnIndex), -9 * shiftFactor, moves);
-            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantRightPawnIndex), -7 * shiftFactor, moves);
+            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantLeftPawnIndex), PAWN, -9 * shiftFactor, moves);
+            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantRightPawnIndex), PAWN, -7 * shiftFactor, moves);
         }
 
         // promotion
@@ -621,14 +628,12 @@ namespace choco {
         while (promoters != 0) {
             uint8_t index = countTrailingZeros(promoters);
             promoters &= ~(1ULL << index);
-            uint8_t shift = index + 8 * shiftFactor;
-            moves.push_back({index, shift, QUEEN});
-            moves.push_back({index, shift, KNIGHT});
-            moves.push_back({index, shift, ROOK});
-            moves.push_back({index, shift, BISHOP});
+            uint8_t promotionSq = index + 8 * shiftFactor;
+            moves.push_back({PAWN, index, promotionSq, QUEEN});
+            moves.push_back({PAWN, index, promotionSq, KNIGHT});
+            moves.push_back({PAWN, index, promotionSq, ROOK});
+            moves.push_back({PAWN, index, promotionSq, BISHOP});
         }
-
-        return moves;
     }
 
     uint8_t Board::countPieces(uint8_t side, uint8_t piece) const {
@@ -639,7 +644,7 @@ namespace choco {
         #include <intrin.h>
         return __popcount64(n);
 #else
-        int count = 0;
+        uint8_t count = 0;
         while (n > 0) {
             n &= (n - 1); 
             count++;
@@ -665,8 +670,6 @@ namespace choco {
         iterateIndicies(bitboards[color][ROOK], [this, color, &attacks](uint8_t index) -> void {
             attacks |= plRookMoveBB(index, color);
         });
-
-        int shiftFactor = state.activeColor == SIDE_WHITE ? 1 : -1;
 
         uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
         uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
@@ -781,7 +784,34 @@ namespace choco {
             }
             oss << "\n";
         }
-        std::string board = oss.str();
-        return board.erase(board.length() - 1);
+        std::string str = oss.str();
+        return str.erase(str.length() - 1);
+    }
+
+    std::string boardToPrettyString(const Board& board) {
+        std::ostringstream oss;
+        for (int rank = 0; rank < 8; rank++) {
+            for (int file = 7; file >= 0; file--) {
+                // idk anymore
+                     if (board.bitboards[SIDE_WHITE][KING] & getMask(rank, file))   oss << "K ";
+                else if (board.bitboards[SIDE_WHITE][QUEEN] & getMask(rank, file))  oss << "Q ";
+                else if (board.bitboards[SIDE_WHITE][BISHOP] & getMask(rank, file)) oss << "B ";
+                else if (board.bitboards[SIDE_WHITE][KNIGHT] & getMask(rank, file)) oss << "N ";
+                else if (board.bitboards[SIDE_WHITE][ROOK] & getMask(rank, file))   oss << "R ";
+                else if (board.bitboards[SIDE_WHITE][PAWN] & getMask(rank, file))   oss << "P ";
+
+                else if (board.bitboards[SIDE_BLACK][KING] & getMask(rank, file))   oss << "k ";
+                else if (board.bitboards[SIDE_BLACK][QUEEN] & getMask(rank, file))  oss << "q ";
+                else if (board.bitboards[SIDE_BLACK][BISHOP] & getMask(rank, file)) oss << "b ";
+                else if (board.bitboards[SIDE_BLACK][KNIGHT] & getMask(rank, file)) oss << "n ";
+                else if (board.bitboards[SIDE_BLACK][ROOK] & getMask(rank, file))   oss << "r ";
+                else if (board.bitboards[SIDE_BLACK][PAWN] & getMask(rank, file))   oss << "p ";
+                
+                else oss << ". ";
+            }
+            oss << "\n";
+        }
+        std::string str = oss.str();
+        return str.erase(str.length() - 1);
     }
 } // namespace choco

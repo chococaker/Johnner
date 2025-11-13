@@ -1,19 +1,22 @@
 #pragma once
 
-#include "tree.h"
 #include "board.h"
 
 namespace choco {
-    class EvalPosition {
+    struct EvalNode {
+        EvalNode(Board& board, float eval);
+
         Board board;
-        float rating;
+        float eval;
+        std::vector<EvalNode*> children;
     };
 
-    typedef Node<EvalPosition> EvalNode;
-
     class Engine {
+    public:
+        Engine(Board& board);
+
         EvalNode* head;
-        Move getBestMove(uint16_t depth) const;
+        Move getBestMove(uint16_t depth);
         void playMove(const Move& move) const;
     };
 } // namespace choco

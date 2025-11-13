@@ -1,9 +1,14 @@
 #include "engine.h"
 
+#include <limits>
+
 #include "macros.h"
 
 namespace choco {
-    float evaluatePosition(const Board& board) {
+    static const float MATE_EVAL = std::numeric_limits<float>::max();
+    static const float MATE_EVAL_THRESHOLD = MATE_EVAL - 200;
+    
+    float staticEvaluate(const Board& board) {
         float eval = 0;
         // material value
         eval += 9 * board.countPieces(SIDE_WHITE, QUEEN);
@@ -21,8 +26,67 @@ namespace choco {
         return eval;
     }
 
-    Move Engine::getBestMove(uint16_t depth) const {
-        
+    float minimax(Board& board, uint32_t depth) {
+        if (board.state.halfMoveClock == 50) return 0;
+        if (!board.bitboards[board.state.activeColor][KING]) {
+            return (board.state.activeColor == SIDE_WHITE) ? -MATE_EVAL : MATE_EVAL;
+        }
+
+        if (depth == 0) {
+            return staticEvaluate(board);
+        }
+        std::vector<Move> moves = board.generatePLMoves();
+        if (board.state.activeColor == SIDE_WHITE) {
+            float maxEval = -std::numeric_limits<float>::infinity();
+            for (const Move& move : moves) {
+                Board newBoard = Board(board);
+                if (newBoard.makeMove(move)) {
+                    float eval = minimax(newBoard, depth - 1);
+                    if (eval > maxEval) maxEval = eval;
+                }
+            }
+            if (maxEval > MATE_EVAL_THRESHOLD) maxEval -= 1;
+            return maxEval;
+        } else {
+            float minEval = std::numeric_limits<float>::infinity();
+            for (const Move& move : moves) {
+                Board newBoard = Board(board);
+                if (newBoard.makeMove(move)) {
+                    float eval = minimax(newBoard, depth - 1);
+                    if (eval < minEval) minEval = eval;
+                }
+            }
+            if (minEval < -MATE_EVAL_THRESHOLD) minEval += 1;
+            return minEval;
+        }
+    }
+
+    EvalNode::EvalNode(Board& board, float eval) : board(board), eval(eval) {}
+
+    Engine::Engine(Board& board) {
+        head = new EvalNode(board, 0);
+    }
+
+    Move Engine::getBestMove(uint16_t depth) {
+        Move bestMove(0, 0, 0); // placeholder values
+        float bestEval = (head->board.state.activeColor == SIDE_WHITE)
+                ? -std::numeric_limits<float>::infinity() : std::numeric_limits<float>::infinity();
+
+        for (const Move& move : head->board.generatePLMoves()) {
+            Board newBoard = Board(head->board);
+            if (newBoard.makeMove(move)) {
+                float eval = minimax(newBoard, depth);
+
+                if (head->board.state.activeColor == SIDE_WHITE && eval > bestEval) {
+                    bestEval = eval;
+                    bestMove = move;
+                } else if (head->board.state.activeColor == SIDE_BLACK && eval < bestEval) {
+                    bestEval = eval;
+                    bestMove = move;
+                }
+            }
+        }
+        return bestMove;
     }
     void Engine::playMove(const Move& move) const {
         

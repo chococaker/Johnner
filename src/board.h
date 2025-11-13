@@ -10,10 +10,13 @@ namespace choco {
 
     class Move {
     public:
-        Move(uint8_t from, uint8_t to) : from(from), to(to), promotionType(0) { }
+        Move(uint8_t pieceType, uint8_t from, uint8_t to)
+                : pieceType(pieceType), from(from), to(to), promotionType(0) { }
 
-        Move(uint8_t from, uint8_t to, uint8_t promotionType) : from(from), to(to), promotionType(promotionType) { }
+        Move(uint8_t pieceType, uint8_t from, uint8_t to, uint8_t promotionType)
+                : pieceType(pieceType), from(from), to(to), promotionType(promotionType) { }
 
+        uint8_t pieceType;
         uint8_t from;
         uint8_t to;
         uint8_t promotionType;
@@ -44,17 +47,18 @@ namespace choco {
          * @brief Makes a move and sets up game state for the next turn. Move must be pseudo-legal.
          * 
          * @param move the pseudo-legal move
-         * @param piece what piece type to move
          * @return whether the move was legal
          */
-        bool makeMove(const Move& move, uint8_t piece);
+        bool makeMove(const Move& move);
 
-        std::vector<Move> generateKingMoves() const;
-        std::vector<Move> generateQueenMoves() const;
-        std::vector<Move> generateKnightMoves() const;
-        std::vector<Move> generateBishopMoves() const;
-        std::vector<Move> generateRookMoves() const;
-        std::vector<Move> generatePawnMoves() const;
+        std::vector<Move> generatePLMoves() const;
+
+        void addKingMoves(std::vector<Move>& moves) const;
+        void addQueenMoves(std::vector<Move>& moves) const;
+        void addKnightMoves(std::vector<Move>& moves) const;
+        void addBishopMoves(std::vector<Move>& moves) const;
+        void addRookMoves(std::vector<Move>& moves) const;
+        void addPawnMoves(std::vector<Move>& moves) const;
 
         uint8_t countPieces(uint8_t side, uint8_t piece) const;
 
@@ -81,4 +85,5 @@ namespace choco {
 
     std::string indexToPrettyString(uint8_t index);
     std::string bitboardToPrettyString(uint64_t bitboard);
+    std::string boardToPrettyString(const Board& board);
 } // namespace choco
