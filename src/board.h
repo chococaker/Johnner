@@ -4,9 +4,22 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <functional>
 
 namespace choco {
     void initBitboards(); // should be called before any move generation
+    class GameState {
+    public:
+        uint8_t activeColor;
+        uint8_t castling;
+        uint8_t halfMoveClock;
+        uint8_t enpassantSquare;
+        uint16_t moveCount;
+
+        void enableCastling(uint8_t color, uint8_t sidePiece);
+        void disableCastling(uint8_t color, uint8_t sidePiece);
+        bool canCastle(uint8_t color, uint8_t sidePiece) const;
+    };
 
     class Move {
     public:
@@ -24,18 +37,18 @@ namespace choco {
         bool operator==(const Move& other);
     };
 
-    class GameState {
+    class UnmakeMove {
     public:
-        uint8_t activeColor;
-        uint8_t castling;
-        uint8_t halfMoveClock;
-        uint8_t enpassantSquare;
-        uint16_t moveCount;
+        Move move;
+        // does not include en passant (it is implied in unmakeMove())
+        uint8_t pieceTaken;
+        GameState state;
 
-        void enableCastling(uint8_t color, uint8_t sidePiece);
-        void disableCastling(uint8_t color, uint8_t sidePiece);
-        bool canCastle(uint8_t color, uint8_t sidePiece) const;
+        bool isValid() const;
     };
+
+    extern const UnmakeMove INVALID_MOVE;
+
 
     class Board {
     public:
@@ -47,11 +60,13 @@ namespace choco {
 
         /**
          * @brief Makes a move and sets up game state for the next turn. Move must be pseudo-legal.
+         * If the move was invalid, nothing will occur and INVALID_MOVE will be return
          * 
          * @param move the pseudo-legal move
-         * @return whether the move was legal
+         * @return UnmakeMove or INVALID_MOVE
          */
-        bool makeMove(const Move& move);
+        UnmakeMove makeMove(const Move& move);
+        void unmakeMove(const UnmakeMove& move);
 
         std::vector<Move> generatePLMoves() const;
 
@@ -64,9 +79,7 @@ namespace choco {
 
         uint8_t countPieces(uint8_t side, uint8_t piece) const;
 
-    private:
-        void putPiece(uint8_t side, uint8_t piece, uint8_t index);
-        void removePiece(uint8_t side, uint8_t piece, uint8_t index);
+        uint64_t plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const;
 
         uint64_t plKingMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plQueenMoveBB(uint8_t square, uint8_t color) const;
@@ -75,6 +88,10 @@ namespace choco {
         uint64_t plRookMoveBB(uint8_t square, uint8_t color) const;
 
         uint64_t getAttacks(uint8_t color) const; // get attacks that a color is doing
+
+    private:
+        void putPiece(uint8_t side, uint8_t piece, uint8_t index);
+        void removePiece(uint8_t side, uint8_t piece, uint8_t index);
     };
 
     uint64_t getMask(uint8_t index);
@@ -88,4 +105,10 @@ namespace choco {
     std::string indexToPrettyString(uint8_t index);
     std::string bitboardToPrettyString(uint64_t bitboard);
     std::string boardToPrettyString(const Board& board);
+
+    void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func);
+
+    uint64_t getOccupiedBitboard(const uint64_t bitboards[6]);
+    uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]);
+    uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]);
 } // namespace choco

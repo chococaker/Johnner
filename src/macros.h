@@ -82,6 +82,7 @@
 #define KNIGHT   (uint8_t)(3)
 #define ROOK     (uint8_t)(4)
 #define PAWN     (uint8_t)(5)
+#define IS_VALID_PIECE(X) X < 6
 
 #define BITBOARD_RANK_1   (0xFFULL)
 #define BITBOARD_RANK_2   (0xFF00ULL)

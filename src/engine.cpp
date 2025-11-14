@@ -6,8 +6,8 @@
 #include "macros.h"
 
 namespace choco {
-    static const float MATE_EVAL = 90000000000; // idk just cause
-    static const float MATE_EVAL_THRESHOLD = MATE_EVAL - 200;
+    static const float MATE_EVAL = 32000; // idk just cause
+    static const float MATE_EVAL_THRESHOLD = MATE_EVAL - 200; // I can spot mate in 200!
     
     float staticEvaluate(const Board& board) {
         float eval = 0;
@@ -27,23 +27,18 @@ namespace choco {
         return eval;
     }
 
-    float alphabeta(Board& board, uint32_t depth, float alpha, float beta) {
-        if (board.state.halfMoveClock == 50) return 0;
-        if (!board.bitboards[board.state.activeColor][KING]) {
-            return (board.state.activeColor == SIDE_WHITE) ? -MATE_EVAL : MATE_EVAL;
-        }
+    float evaluate(Board& board, int depth, float alpha, float beta) {
+        if (board.state.halfMoveClock == 100) return 0;
 
-        if (depth == 0) {
-            return staticEvaluate(board);
-        }
+        if (depth == 0) return staticEvaluate(board);
         std::vector<Move> moves = board.generatePLMoves();
         if (board.state.activeColor == SIDE_WHITE) {
-            float maxEval = -std::numeric_limits<float>::infinity();
-            if (moves.size() == 0) std::cout << "Conundrum" << std::endl;
+            float maxEval = -MATE_EVAL_THRESHOLD;
             for (const Move& move : moves) {
-                Board newBoard = Board(board);
-                if (newBoard.makeMove(move)) {
-                    float eval = alphabeta(newBoard, depth - 1, alpha, beta);
+                UnmakeMove unmakeMove = board.makeMove(move);
+                if (unmakeMove.isValid()) {
+                    float eval = evaluate(board, depth - 1, alpha, beta);
+                    board.unmakeMove(unmakeMove);
                     maxEval = std::max(maxEval, eval);
                     if (maxEval >= beta) break; // beta cutoff
                     alpha = std::max(alpha, maxEval);
@@ -54,11 +49,12 @@ namespace choco {
             if (maxEval > MATE_EVAL_THRESHOLD) maxEval -= 1;
             return maxEval;
         } else {
-            float minEval = std::numeric_limits<float>::infinity();
+            float minEval = MATE_EVAL_THRESHOLD;
             for (const Move& move : moves) {
-                Board newBoard = Board(board);
-                if (newBoard.makeMove(move)) {
-                    float eval = alphabeta(newBoard, depth - 1, alpha, beta);
+                UnmakeMove unmakeMove = board.makeMove(move);
+                if (unmakeMove.isValid()) {
+                    float eval = evaluate(board, depth - 1, alpha, beta);
+                    board.unmakeMove(unmakeMove);
                     minEval = std::min(minEval, eval);
                     if (minEval <= alpha) break; // alpha cutoff
                     beta = std::min(beta, minEval);
@@ -69,6 +65,30 @@ namespace choco {
             return minEval;
         }
     }
+
+    // float quiesce(Board& board, int depth, float alpha, float beta) {
+    //     float eval = staticEvaluate(board);
+    //
+    //     // Stand Pat
+    //     int bestVal = eval;
+    //     if (bestVal >= beta) return bestVal;
+    //     if (bestVal > alpha) alpha = bestVal;
+    //
+    //     // examine every capture
+    //     for (int i = 0; i < 6; i++) {
+    //         uint64_t pieces = board.bitboards[board.state.activeColor][i];
+    //         uint64_t enemyPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
+    //
+    //         iterateIndices(pieces, [&board, enemyPieces](uint8_t index) -> void {
+    //             uint64_t attacks = board.plRookMoveBB(index, board.state.activeColor) & enemyPieces;
+    //             iterateIndices(attacks, [&board, enemyPieces](uint8_t index) -> void {
+    //                 board.makeMove()
+    //             });
+    //         });
+    //     }
+    //
+    //     return bestVal;
+    // }
 
     EvalNode::EvalNode(Board& board, float eval) : board(board), eval(eval) {}
 
@@ -81,12 +101,13 @@ namespace choco {
         float bestEval = (head->board.state.activeColor == SIDE_WHITE)
                 ? -std::numeric_limits<float>::infinity() : std::numeric_limits<float>::infinity();
 
+        Board newBoard = Board(head->board);
         for (const Move& move : head->board.generatePLMoves()) {
-            Board newBoard = Board(head->board);
-            if (newBoard.makeMove(move)) {
+            UnmakeMove unmakeMove = newBoard.makeMove(move);
+            if (unmakeMove.isValid()) {
                 std::cout << "Attempting " << indexToPrettyString(move.from)
                           << " to " << indexToPrettyString(move.to);
-                float eval = alphabeta(newBoard, depth,
+                float eval = evaluate(newBoard, depth,
                     -std::numeric_limits<float>::infinity(),
                     std::numeric_limits<float>::infinity());
 
@@ -101,6 +122,7 @@ namespace choco {
                     bestEval = eval;
                     bestMove = move;
                 }
+                newBoard.unmakeMove(unmakeMove);
             }
         }
         std::cout << "Evaluation: " << std::to_string(bestEval) << std::endl;
