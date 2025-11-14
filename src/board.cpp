@@ -46,11 +46,13 @@ namespace choco {
         }
 
         void addOffsetExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t offset, std::vector<Move>& moveVec) {
-            while (bitboard != 0) {
-                uint8_t index = countTrailingZeros(bitboard);
-                bitboard &= ~(1ULL << index);
-                Move move = { piece, index - offset, index };
-                moveVec.push_back(move);
+            if (offset > 0) {
+                while (bitboard) {
+                    uint8_t index = countTrailingZeros(bitboard);
+                    bitboard &= ~(1ULL << index);
+                    Move move = { piece, index - offset, index };
+                    moveVec.push_back(move);
+                }
             }
         }
 
@@ -115,10 +117,10 @@ namespace choco {
             return attacks;
         }
     
-        uint64_t shiftLeftBasedOnColor(uint64_t val, uint8_t amount, uint8_t color) {
+        uint64_t shiftLeftBasedOnColor(uint8_t color, uint64_t val, uint8_t amount) {
             if (color == SIDE_WHITE) return val << amount;
             else return val >> amount;
-        };
+        }
     }
 
     struct Magic {
@@ -348,6 +350,10 @@ namespace choco {
         std::cout << "  > Finished all." << std::endl;
     }
 
+    bool Move::operator==(const Move& other) {
+        return from == other.from && to == other.to && promotionType == other.promotionType;
+    }
+
     void GameState::enableCastling(uint8_t color, uint8_t sidePiece) {
         uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
         castling |= mask;
@@ -365,7 +371,7 @@ namespace choco {
 
     Board::Board() {
         memset(bitboards, 0, sizeof(bitboards));
-        state = { SIDE_WHITE, 0, 0, 0, 0 };
+        state = { SIDE_WHITE, 0, 0, 100, 0 };
     }
 
     Board::Board(const std::string& fen) : Board() {
@@ -432,15 +438,15 @@ namespace choco {
 
         // castling
         const std::string& castlingString = fenParts[2];
-        if (castlingString.find('k') != std::string::npos) state.enableCastling(SIDE_WHITE, KING);
-        if (castlingString.find('q') != std::string::npos) state.enableCastling(SIDE_WHITE, QUEEN);
-        if (castlingString.find('K') != std::string::npos) state.enableCastling(SIDE_BLACK, KING);
-        if (castlingString.find('Q') != std::string::npos) state.enableCastling(SIDE_BLACK, QUEEN);
+        if (castlingString.find('K') != std::string::npos) state.enableCastling(SIDE_WHITE, KING);
+        if (castlingString.find('Q') != std::string::npos) state.enableCastling(SIDE_WHITE, QUEEN);
+        if (castlingString.find('k') != std::string::npos) state.enableCastling(SIDE_BLACK, KING);
+        if (castlingString.find('q') != std::string::npos) state.enableCastling(SIDE_BLACK, QUEEN);
 
         // en passant
         const std::string& passantString = fenParts[3];
         if (passantString.length() == 2) {
-            uint8_t passantFile = passantString[0] - 'A';
+            uint8_t passantFile = passantString[0] - 'a';
             uint8_t passantRank = passantString[1] - '0' - 1;
             state.enpassantSquare = getIndex(passantRank, passantFile);
         }
@@ -456,7 +462,7 @@ namespace choco {
         bitboards[side][piece] |= (1ULL << index);
     }
     void Board::removePiece(uint8_t side, uint8_t piece, uint8_t index) {
-        bitboards[side][piece] ^= (1ULL << index);
+        bitboards[side][piece] &= (1ULL << index);
     }
     bool Board::makeMove(const Move& move) {
         removePiece(state.activeColor, move.pieceType, move.from);
@@ -477,22 +483,23 @@ namespace choco {
 
         if (move.pieceType == PAWN) {
             state.halfMoveClock = 0;
-            
+
+            // en passant
+            if (move.to == state.enpassantSquare) {
+                std::cout << "En passant!" << std::endl;
+                int offset = state.activeColor == SIDE_WHITE ? 8 : -8;
+                removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to - offset);
+            }
+
+            state.enpassantSquare = 127;
+
             // double push
             if (move.from - move.to == 16 || move.to - move.from == 16) {
                 if (move.from - move.to == 16) {
                     state.enpassantSquare = move.from - 8;
                 } else if (move.to - move.from == 16) {
                     state.enpassantSquare = move.from + 8;
-                } else {
-                    state.enpassantSquare = 127; // impossible
                 }
-            }
-
-            // en passant
-            if (move.to == state.enpassantSquare) {
-                int offset = state.activeColor == SIDE_WHITE ? -8 : 8;
-                removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to + offset);
             }
 
             // promotion
@@ -539,7 +546,7 @@ namespace choco {
         if (move.from == A8 || move.to == A8) state.disableCastling(SIDE_BLACK, QUEEN);
         if (move.from == H8 || move.to == H8) state.disableCastling(SIDE_BLACK, KING);
 
-        state.activeColor = !state.activeColor;
+        state.activeColor = OPPOSITE_SIDE(state.activeColor);
 
         // lazy move legality check. does not check for king attack as engine will avoid moves like that at all costs
         return !(getAttacks(state.activeColor) & illegalAttackSquares);
@@ -547,6 +554,10 @@ namespace choco {
 
     std::vector<Move> Board::generatePLMoves() const {
         std::vector<Move> moves;
+        addPawnMoves(moves);
+        addBishopMoves(moves);
+        addKnightMoves(moves);
+        addQueenMoves(moves);
         addRookMoves(moves);
         addKingMoves(moves);
         return moves;
@@ -559,10 +570,16 @@ namespace choco {
 
         // castling spaghetti
         if (state.canCastle(state.activeColor, KING)) {
-            moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, G1) : Move(KING, E8, G8));
+            uint64_t occupied = getOccupiedBitboard(bitboards);
+            uint64_t mask = state.activeColor == SIDE_WHITE ? F1 | G1 : F8 | G8;
+            occupied &= mask;
+            if (!occupied) moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, G1) : Move(KING, E8, G8));
         }
         if (state.canCastle(state.activeColor, QUEEN)) {
-            moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, B1) : Move(KING, E8, B8));
+            uint64_t occupied = getOccupiedBitboard(bitboards);
+            uint64_t mask = state.activeColor == SIDE_WHITE ? D1 | C1 | B1 : D8 | C8 | B8;
+            occupied &= mask;
+            if (!occupied) moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, B1) : Move(KING, E8, B8));
         }
     }
 
@@ -599,29 +616,24 @@ namespace choco {
 
         // pushes
         uint64_t emptySquares = getEmptyBitboard(bitboards);
-        uint64_t promoterMask = (color == SIDE_WHITE) ? BITBOARD_RANK_7 : BITBOARD_RANK_1;
+        uint64_t promoterMask = (color == SIDE_WHITE) ? BITBOARD_RANK_7 : BITBOARD_RANK_2;
         uint64_t pushedPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~promoterMask, 8) & emptySquares;
+        addOffsetExtractedMoves(pushedPawns, PAWN, 8 * shiftFactor, moves);
+
+        // double pushes
         uint64_t doublePushRankMask = (color == SIDE_WHITE) ? BITBOARD_RANK_3 : BITBOARD_RANK_6;
         uint64_t doublePushedPawns = shiftLeftBasedOnColor(color, pushedPawns & doublePushRankMask, 8) & emptySquares;
-        addOffsetExtractedMoves(pushedPawns, PAWN, 8 * shiftFactor, moves);
         addOffsetExtractedMoves(doublePushedPawns, PAWN, 16 * shiftFactor, moves);
 
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
+        if (state.enpassantSquare < 64) oppSquares |= getMask(state.enpassantSquare);
         uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
         uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
-        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsL, 7) & oppSquares;
-        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 9) & oppSquares;
+        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 7) & oppSquares;
+        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsL, 9) & oppSquares;
         addOffsetExtractedMoves(captureLPawns, PAWN, 7 * shiftFactor, moves);
         addOffsetExtractedMoves(captureRPawns, PAWN, 9 * shiftFactor, moves);
-
-        // en passant
-        if (state.enpassantSquare < 64) {
-            uint8_t passantLeftPawnIndex = state.enpassantSquare - 9 * shiftFactor;
-            uint8_t passantRightPawnIndex = state.enpassantSquare - 7 * shiftFactor;
-            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantLeftPawnIndex), PAWN, -9 * shiftFactor, moves);
-            addOffsetExtractedMoves(bitboards[color][PAWN] & getMask(passantRightPawnIndex), PAWN, -7 * shiftFactor, moves);
-        }
 
         // promotion
         uint64_t promoters = bitboards[color][PAWN] & promoterMask;
@@ -629,10 +641,12 @@ namespace choco {
             uint8_t index = countTrailingZeros(promoters);
             promoters &= ~(1ULL << index);
             uint8_t promotionSq = index + 8 * shiftFactor;
-            moves.push_back({PAWN, index, promotionSq, QUEEN});
-            moves.push_back({PAWN, index, promotionSq, KNIGHT});
-            moves.push_back({PAWN, index, promotionSq, ROOK});
-            moves.push_back({PAWN, index, promotionSq, BISHOP});
+            if (getMask(promotionSq) & emptySquares) {
+                moves.push_back({PAWN, index, promotionSq, QUEEN});
+                moves.push_back({PAWN, index, promotionSq, KNIGHT});
+                moves.push_back({PAWN, index, promotionSq, ROOK});
+                moves.push_back({PAWN, index, promotionSq, BISHOP});
+            }
         }
     }
 
@@ -772,20 +786,22 @@ namespace choco {
     }
     
     // prints the bitboard from black's perspective
-    // H1(7)  --  A1(0)
-    // |              |
-    // H8(63) -- H1(55)
     std::string bitboardToPrettyString(uint64_t bitboard) {
         std::ostringstream oss;
         for (int rank = 0; rank < 8; rank++) {
             for (int file = 7; file >= 0; file--) {
                 uint64_t mask = choco::getMask(rank, file);
-                oss << (((bool) (bitboard & mask))) << " ";
+                if (bitboard & mask) oss << "o";
+                else oss << "-";
+                oss << " ";
             }
-            oss << "\n";
+
+            oss << (char) ('A' + rank) << "\n";
         }
-        std::string str = oss.str();
-        return str.erase(str.length() - 1);
+        for (int file = 7; file >= 0; file--) {
+            oss << (char) ('1' + file)  << " ";
+        }
+        return oss.str();
     }
 
     std::string boardToPrettyString(const Board& board) {
@@ -809,7 +825,10 @@ namespace choco {
                 
                 else oss << ". ";
             }
-            oss << "\n";
+            oss << (char) ('A' + rank) << "\n";
+        }
+        for (int file = 7; file >= 0; file--) {
+            oss << char('1' + file) << " ";
         }
         std::string str = oss.str();
         return str.erase(str.length() - 1);

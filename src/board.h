@@ -20,6 +20,8 @@ namespace choco {
         uint8_t from;
         uint8_t to;
         uint8_t promotionType;
+
+        bool operator==(const Move& other);
     };
 
     class GameState {

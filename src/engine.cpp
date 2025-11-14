@@ -45,6 +45,8 @@ namespace choco {
                     if (eval > maxEval) maxEval = eval;
                 }
             }
+            
+            if (maxEval < -MATE_EVAL_THRESHOLD) maxEval += 1;
             if (maxEval > MATE_EVAL_THRESHOLD) maxEval -= 1;
             return maxEval;
         } else {
@@ -57,6 +59,7 @@ namespace choco {
                 }
             }
             if (minEval < -MATE_EVAL_THRESHOLD) minEval += 1;
+            if (minEval > MATE_EVAL_THRESHOLD) minEval -= 1;
             return minEval;
         }
     }
@@ -77,6 +80,10 @@ namespace choco {
             if (newBoard.makeMove(move)) {
                 float eval = minimax(newBoard, depth);
 
+                std::cout << "  - " << indexToPrettyString(move.from)
+                          << " to " << indexToPrettyString(move.to)
+                        << ": " << std::to_string(eval) << std::endl;
+
                 if (head->board.state.activeColor == SIDE_WHITE && eval > bestEval) {
                     bestEval = eval;
                     bestMove = move;
@@ -86,6 +93,7 @@ namespace choco {
                 }
             }
         }
+        std::cout << "Evaluation: " << std::to_string(bestEval) << std::endl;
         return bestMove;
     }
     void Engine::playMove(const Move& move) const {
