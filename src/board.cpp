@@ -462,7 +462,7 @@ namespace choco {
         bitboards[side][piece] |= (1ULL << index);
     }
     void Board::removePiece(uint8_t side, uint8_t piece, uint8_t index) {
-        bitboards[side][piece] &= (1ULL << index);
+        bitboards[side][piece] &= ~getMask(index);
     }
     bool Board::makeMove(const Move& move) {
         removePiece(state.activeColor, move.pieceType, move.from);
@@ -486,7 +486,6 @@ namespace choco {
 
             // en passant
             if (move.to == state.enpassantSquare) {
-                std::cout << "En passant!" << std::endl;
                 int offset = state.activeColor == SIDE_WHITE ? 8 : -8;
                 removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, move.to - offset);
             }

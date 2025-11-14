@@ -45,7 +45,7 @@ namespace choco {
                     if (eval > maxEval) maxEval = eval;
                 }
             }
-            
+
             if (maxEval < -MATE_EVAL_THRESHOLD) maxEval += 1;
             if (maxEval > MATE_EVAL_THRESHOLD) maxEval -= 1;
             return maxEval;
@@ -78,11 +78,13 @@ namespace choco {
         for (const Move& move : head->board.generatePLMoves()) {
             Board newBoard = Board(head->board);
             if (newBoard.makeMove(move)) {
+                std::cout << "Attempting " << indexToPrettyString(move.from)
+                          << " to " << indexToPrettyString(move.to);
                 float eval = minimax(newBoard, depth);
 
                 std::cout << "  - " << indexToPrettyString(move.from)
                           << " to " << indexToPrettyString(move.to)
-                        << ": " << std::to_string(eval) << std::endl;
+                          << ": " << std::to_string(eval) << std::endl;
 
                 if (head->board.state.activeColor == SIDE_WHITE && eval > bestEval) {
                     bestEval = eval;
