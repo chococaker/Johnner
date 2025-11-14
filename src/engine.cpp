@@ -1,6 +1,7 @@
 #include "engine.h"
 
 #include <limits>
+#include <algorithm>
 
 #include "macros.h"
 
@@ -26,7 +27,7 @@ namespace choco {
         return eval;
     }
 
-    float minimax(Board& board, uint32_t depth) {
+    float alphabeta(Board& board, uint32_t depth, float alpha, float beta) {
         if (board.state.halfMoveClock == 50) return 0;
         if (!board.bitboards[board.state.activeColor][KING]) {
             return (board.state.activeColor == SIDE_WHITE) ? -MATE_EVAL : MATE_EVAL;
@@ -41,8 +42,10 @@ namespace choco {
             for (const Move& move : moves) {
                 Board newBoard = Board(board);
                 if (newBoard.makeMove(move)) {
-                    float eval = minimax(newBoard, depth - 1);
-                    if (eval > maxEval) maxEval = eval;
+                    float eval = alphabeta(newBoard, depth - 1, alpha, beta);
+                    maxEval = std::max(maxEval, eval);
+                    if (maxEval >= beta) break; // beta cutoff
+                    alpha = std::max(alpha, maxEval);
                 }
             }
 
@@ -54,8 +57,10 @@ namespace choco {
             for (const Move& move : moves) {
                 Board newBoard = Board(board);
                 if (newBoard.makeMove(move)) {
-                    float eval = minimax(newBoard, depth - 1);
-                    if (eval < minEval) minEval = eval;
+                    float eval = alphabeta(newBoard, depth - 1, alpha, beta);
+                    minEval = std::min(minEval, eval);
+                    if (minEval <= alpha) break; // alpha cutoff
+                    beta = std::min(beta, minEval);
                 }
             }
             if (minEval < -MATE_EVAL_THRESHOLD) minEval += 1;
@@ -80,7 +85,9 @@ namespace choco {
             if (newBoard.makeMove(move)) {
                 std::cout << "Attempting " << indexToPrettyString(move.from)
                           << " to " << indexToPrettyString(move.to);
-                float eval = minimax(newBoard, depth);
+                float eval = alphabeta(newBoard, depth,
+                    -std::numeric_limits<float>::infinity(),
+                    std::numeric_limits<float>::infinity());
 
                 std::cout << "  - " << indexToPrettyString(move.from)
                           << " to " << indexToPrettyString(move.to)

@@ -165,10 +165,10 @@ namespace choco {
             val.mask = maskGenerator(i);
 
             // bitboard generation
-            uint64_t $look[attacksSize] = {0};
-            int $lookIndex = 0;
-            enumerateSubsets(val.mask, [&$look, &$lookIndex, &attackGenerator, i](uint64_t bitboard) -> void {
-                $look[$lookIndex++] = attackGenerator(bitboard, i);
+            uint64_t _look[1 << shifts] = {0};
+            int _lookIndex = 0;
+            enumerateSubsets(val.mask, [&_look, &_lookIndex, &attackGenerator, i](uint64_t bitboard) -> void {
+                _look[_lookIndex++] = attackGenerator(bitboard, i);
             });
 
             // magic
@@ -178,14 +178,14 @@ namespace choco {
                 std::memset(attacks[i], 0, sizeof(uint64_t) * attacksSize);
                 validMagic = true;
                 val.magic = engine() & engine() & engine();
-                $lookIndex = 0; // reuse the old variable why not
+                _lookIndex = 0; // reuse the old variable why not
 
                 int magicCheckCount_ = 0;
 
                 enumerateSubsets(val.mask, [&validMagic,
                                             &val,
-                                            &$look,
-                                            &$lookIndex,
+                                            &_look,
+                                            &_lookIndex,
                                             &magicCheckCount_,
                                             &iterations,
                                             &attacks,
@@ -197,7 +197,7 @@ namespace choco {
                     // hash, then isolate last digits
                     uint16_t hash = ((bitboard * val.magic) >> (64 - shifts)) & ((1ULL << shifts) - 1);
 
-                    uint64_t attackBoard = $look[$lookIndex++];
+                    uint64_t attackBoard = _look[_lookIndex++];
                     magicCheckCount_++;
 
                     if (attacks[i][hash] && attacks[i][hash] != attackBoard) { // hash collision
@@ -351,7 +351,10 @@ namespace choco {
     }
 
     bool Move::operator==(const Move& other) {
-        return from == other.from && to == other.to && promotionType == other.promotionType;
+        return pieceType == other.pieceType
+                && from == other.from
+                && to == other.to
+                && promotionType == other.promotionType;
     }
 
     void GameState::enableCastling(uint8_t color, uint8_t sidePiece) {
@@ -361,7 +364,7 @@ namespace choco {
 
     void GameState::disableCastling(uint8_t color, uint8_t sidePiece) {
         uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
-        castling &= mask;
+        castling &= ~mask;
     }
 
     bool GameState::canCastle(uint8_t color, uint8_t sidePiece) const {
@@ -524,7 +527,6 @@ namespace choco {
             } else if (move.to == C8 || move.to == G8) {
                 illegalAttackSquares |= getMask(E8);
                 if (move.to == C8) {
-                    putPiece(state.activeColor, ROOK, move.from);
                     illegalAttackSquares |= getMask(D8);
                     removePiece(SIDE_BLACK, ROOK, A8);
                     putPiece(SIDE_BLACK, ROOK, D8);
@@ -578,7 +580,7 @@ namespace choco {
             uint64_t occupied = getOccupiedBitboard(bitboards);
             uint64_t mask = state.activeColor == SIDE_WHITE ? D1 | C1 | B1 : D8 | C8 | B8;
             occupied &= mask;
-            if (!occupied) moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, B1) : Move(KING, E8, B8));
+            if (!occupied) moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, C1) : Move(KING, E8, C8));
         }
     }
 
@@ -596,7 +598,7 @@ namespace choco {
 
     void Board::addBishopMoves(std::vector<Move>& moves) const {
         iterateIndicies(bitboards[state.activeColor][BISHOP], [this, &moves](uint8_t index) -> void {
-            addOriginExtractedMoves(plBishopMoveBB(index, state.activeColor), ROOK, index, moves);
+            addOriginExtractedMoves(plBishopMoveBB(index, state.activeColor), BISHOP, index, moves);
         });
     }
 
@@ -693,7 +695,7 @@ namespace choco {
     }
 
     uint64_t Board::plKingMoveBB(uint8_t square, uint8_t color) const {
-        return KING_ATTACKS[square] &= (~getOccupiedBitboard(bitboards[color]));
+        return KING_ATTACKS[square] & (~getOccupiedBitboard(bitboards[color]));
     }
 
     uint64_t Board::plQueenMoveBB(uint8_t square, uint8_t color) const {
@@ -720,7 +722,7 @@ namespace choco {
     }
 
     uint64_t Board::plKnightMoveBB(uint8_t square, uint8_t color) const {
-        return KNIGHT_ATTACKS[square] &= (~getOccupiedBitboard(bitboards[color]));
+        return KNIGHT_ATTACKS[square] & (~getOccupiedBitboard(bitboards[color]));
     }
     
     uint64_t Board::plRookMoveBB(uint8_t square, uint8_t color) const {
@@ -750,7 +752,7 @@ namespace choco {
             case 7: return BITBOARD_RANK_8;
         }
 
-        throw std::invalid_argument("OOB rank " + rank);
+        throw std::invalid_argument("OOB rank " + std::to_string(rank));
     }
 
     uint64_t getFileMask(int file) {
@@ -765,7 +767,7 @@ namespace choco {
             case 7: return BITBOARD_FILE_H;
         }
 
-        throw std::invalid_argument("OOB file " + file);
+        throw std::invalid_argument("OOB file " + std::to_string(file));
     }
 
     uint8_t getIndex(int rank, int file) {

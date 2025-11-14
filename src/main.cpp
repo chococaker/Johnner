@@ -13,17 +13,16 @@
 
 void runEvaluator() {
     choco::initBitboards();
-    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    choco::Board bb = choco::Board("rn1k2r1/pp3p1p/2p5/3p2p1/2B5/1P5P/PBPQ1P1P/RN2K1NR b KQ - 0 12");
 
-    std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
-
-    choco::Engine engine(bb);
-    choco::Move move = engine.getBestMove(3);
-    // if (move == choco::Move(0, 0, 0)) break;
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: ";
-    bb.makeMove(move);
+    choco::Engine engine(bb);
+    choco::Move move = engine.getBestMove(5);
+
     std::cout << choco::indexToPrettyString(move.from) << " to " << choco::indexToPrettyString(move.to) << std::endl;
     std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
+
+    std::cout << bb.state.activeColor << std::endl;
 
     std::cout << "Done" << std::endl;
 }
@@ -57,6 +56,6 @@ void runRenderer() {
 }
 
 int main() {
-    runMoveGenTest();
+    runEvaluator();
     return 0;
 }
