@@ -547,6 +547,7 @@ namespace choco {
         if (move.from == A8 || move.to == A8) state.disableCastling(SIDE_BLACK, QUEEN);
         if (move.from == H8 || move.to == H8) state.disableCastling(SIDE_BLACK, KING);
 
+        illegalAttackSquares |= bitboards[state.activeColor][KING];
         state.activeColor = OPPOSITE_SIDE(state.activeColor);
 
         // lazy move legality check. does not check for king attack as engine will avoid moves like that at all costs
@@ -629,8 +630,8 @@ namespace choco {
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
         if (state.enpassantSquare < 64) oppSquares |= getMask(state.enpassantSquare);
-        uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
-        uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
+        uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
+        uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
         uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 7) & oppSquares;
         uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsL, 9) & oppSquares;
         addOffsetExtractedMoves(captureLPawns, PAWN, 7 * shiftFactor, moves);

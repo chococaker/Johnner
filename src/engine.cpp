@@ -6,7 +6,7 @@
 #include "macros.h"
 
 namespace choco {
-    static const float MATE_EVAL = std::numeric_limits<float>::max();
+    static const float MATE_EVAL = 90000000000; // idk just cause
     static const float MATE_EVAL_THRESHOLD = MATE_EVAL - 200;
     
     float staticEvaluate(const Board& board) {
@@ -39,6 +39,7 @@ namespace choco {
         std::vector<Move> moves = board.generatePLMoves();
         if (board.state.activeColor == SIDE_WHITE) {
             float maxEval = -std::numeric_limits<float>::infinity();
+            if (moves.size() == 0) std::cout << "Conundrum" << std::endl;
             for (const Move& move : moves) {
                 Board newBoard = Board(board);
                 if (newBoard.makeMove(move)) {
