@@ -37,7 +37,11 @@ namespace choco {
         std::vector<Move> moves = board.generatePLMoves();
         uint64_t opponentPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
         for (const Move& move : moves)  {
-            if (!(getMask(move.to) & opponentPieces)) continue;
+            uint64_t toMask = getMask(move.to);
+            if (!(board.plMoveBB(move.pieceType, move.to, board.state.activeColor)
+                    & board.bitboards[OPPOSITE_SIDE(board.state.activeColor)][KING]) // check
+                && !(toMask & opponentPieces) // capture
+                && !IS_VALID_PIECE(move.promotionType)) continue; // promotion
             UnmakeMove unmake = board.makeMove(move);
             if (unmake.isValid()) {
                 float score = -quiesce(board, -beta, -alpha);
@@ -61,12 +65,11 @@ namespace choco {
         for (const Move& move : moves)  {
             UnmakeMove unmake = board.makeMove(move);
             if (unmake.isValid()) {
-                float score = evaluate(board, -beta, -alpha, depth - 1);
+                float score = -evaluate(board, -beta, -alpha, depth - 1);
                 board.unmakeMove(unmake);
-                if(score > bestValue) {
+                if (score > bestValue) {
                     bestValue = score;
-                    if (score > alpha)
-                        alpha = score;
+                    if (score > alpha) alpha = score;
                 }
                 if (score >= beta)
                     return bestValue; // failsoft
@@ -88,25 +91,32 @@ namespace choco {
                 ? -std::numeric_limits<float>::infinity() : std::numeric_limits<float>::infinity();
         
         for (const Move& move : head->board.generatePLMoves()) {
-            Board newBoard = Board(head->board);
-            UnmakeMove unmakeMove = newBoard.makeMove(move);
+            UnmakeMove unmakeMove = head->board.makeMove(move);
             if (unmakeMove.isValid()) {
                 std::cout << "Attempting " << indexToPrettyString(move.from)
                           << " to " << indexToPrettyString(move.to) << ": ";
-                float eval = evaluate(newBoard,
+                float eval = evaluate(head->board,
                     -std::numeric_limits<float>::infinity(),
                     std::numeric_limits<float>::infinity(), depth);
+                    head->board.unmakeMove(unmakeMove);
 
                 std::cout << std::to_string(eval) << std::endl;
 
-                if (eval > bestEval) {
+                if (head->board.state.activeColor == SIDE_WHITE && eval > bestEval) {
+                    bestEval = eval;
+                    bestMove = move;
+                } else if (head->board.state.activeColor == SIDE_BLACK && eval < bestEval) {
                     bestEval = eval;
                     bestMove = move;
                 }
-                newBoard.unmakeMove(unmakeMove);
             }
         }
+        std::cout << std::endl;
+#ifdef BOT_PERF_CTR
+        std::cout << "Evaluation (" << std::to_string(consideredMoves) << " nodes searched): " << std::to_string(bestEval) << std::endl;
+#else
         std::cout << "Evaluation: " << std::to_string(bestEval) << std::endl;
+#endif
         return bestMove;
     }
 }

@@ -79,11 +79,14 @@ namespace choco {
 
         uint8_t countPieces(uint8_t side, uint8_t piece) const;
 
+        uint64_t plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const;
+
         uint64_t plKingMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plQueenMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plBishopMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plKnightMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plRookMoveBB(uint8_t square, uint8_t color) const;
+        uint64_t plPawnMoveBB(uint8_t square, uint8_t color) const;
 
         uint64_t getAttacks(uint8_t color) const; // get attacks that a color is doing
 

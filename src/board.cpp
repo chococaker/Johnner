@@ -40,6 +40,21 @@ namespace choco {
             }
         }
 
+        void addOffsetExtractedPromotionMoves(uint64_t bitboard, uint8_t offset, std::vector<Move>& moveVec) {
+            if (offset > 0) {
+                while (bitboard) {
+                    uint8_t index = countTrailingZeros(bitboard);
+                    bitboard &= ~(1ULL << index);
+                    // i know this slows down the engine, but it's for style points.
+                    // promoting to queen when rook/bishop mate is available is just a terrible thing to do
+                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, ROOK });
+                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, BISHOP });
+                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, QUEEN });
+                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, KNIGHT });
+                }
+            }
+        }
+
         void addOriginExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t originIndex, std::vector<Move>& moveVec) {
             while (bitboard != 0) {
                 uint8_t index = countTrailingZeros(bitboard);
@@ -570,12 +585,16 @@ namespace choco {
     }
 
     std::vector<Move> Board::generatePLMoves() const {
+#ifdef BOT_PERF_CTR
+        consideredMoves++;
+#endif
+
         std::vector<Move> moves;
         moves.reserve(44); // avg amount of moves available + a lil extra
         addPawnMoves(moves);
-        addBishopMoves(moves);
         addKnightMoves(moves);
         addQueenMoves(moves);
+        addBishopMoves(moves);
         addRookMoves(moves);
         addKingMoves(moves);
 
@@ -646,6 +665,8 @@ namespace choco {
         uint64_t doublePushedPawns = shiftLeftBasedOnColor(color, pushedPawns & doublePushRankMask, 8) & emptySquares;
         addOffsetExtractedMoves(doublePushedPawns, PAWN, 16 * shiftFactor, moves);
 
+        uint64_t promotedMask = (color == SIDE_WHITE) ? BITBOARD_RANK_8 : BITBOARD_RANK_1;
+
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
         if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
@@ -653,22 +674,14 @@ namespace choco {
         uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
         uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 7) & oppSquares;
         uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsL, 9) & oppSquares;
-        addOffsetExtractedMoves(captureLPawns, PAWN, 7 * shiftFactor, moves);
-        addOffsetExtractedMoves(captureRPawns, PAWN, 9 * shiftFactor, moves);
+        addOffsetExtractedMoves(captureLPawns & ~promotedMask, PAWN, 7 * shiftFactor, moves);
+        addOffsetExtractedMoves(captureRPawns & ~promotedMask, PAWN, 9 * shiftFactor, moves);
+        addOffsetExtractedPromotionMoves(captureLPawns & promotedMask, 7 * shiftFactor, moves);
+        addOffsetExtractedPromotionMoves(captureRPawns & promotedMask, 9 * shiftFactor, moves);
 
         // promotion
-        uint64_t promoters = bitboards[color][PAWN] & promoterMask;
-        while (promoters != 0) {
-            uint8_t index = countTrailingZeros(promoters);
-            promoters &= ~(1ULL << index);
-            uint8_t promotionSq = index + 8 * shiftFactor;
-            if (getMask(promotionSq) & emptySquares || getMask(promotionSq) & oppSquares) {
-                moves.push_back({PAWN, index, promotionSq, QUEEN});
-                moves.push_back({PAWN, index, promotionSq, KNIGHT});
-                moves.push_back({PAWN, index, promotionSq, ROOK});
-                moves.push_back({PAWN, index, promotionSq, BISHOP});
-            }
-        }
+        uint64_t promotedPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & promoterMask, 8) & emptySquares;
+        addOffsetExtractedPromotionMoves(promotedPawns, 8 * shiftFactor, moves);
     }
 
     uint8_t Board::countPieces(uint8_t side, uint8_t piece) const {
@@ -717,6 +730,19 @@ namespace choco {
         return attacks;
     }
 
+    uint64_t Board::plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const {
+        switch (pieceType) {
+            case KING: return plKingMoveBB(square, color);
+            case QUEEN: return plQueenMoveBB(square, color);
+            case BISHOP: return plBishopMoveBB(square, color);
+            case KNIGHT: return plKnightMoveBB(square, color);
+            case ROOK: return plRookMoveBB(square, color);
+            case PAWN: return plPawnMoveBB(square, color);
+        }
+
+        return 0;
+    }
+
     uint64_t Board::plKingMoveBB(uint8_t square, uint8_t color) const {
         return KING_ATTACKS[square] & (~getOccupiedBitboard(bitboards[color]));
     }
@@ -753,6 +779,33 @@ namespace choco {
         uint64_t relevantBitboard = getOccupiedBitboard(bitboards) & val.mask;
         uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
         return ROOK_ATTACKS[square][hash] & (~getOccupiedBitboard(bitboards[color]));
+    }
+
+    uint64_t Board::plPawnMoveBB(uint8_t square, uint8_t color) const {
+        uint64_t bb = 0;
+        uint64_t pawnMask = getMask(square);
+
+        // pushes
+        uint64_t emptySquares = getEmptyBitboard(bitboards);
+        uint64_t pushedPawn = shiftLeftBasedOnColor(color, pawnMask, 8) & emptySquares;
+        bb |= pushedPawn;
+
+        // double pushes
+        uint64_t doublePushRankMask = (color == SIDE_WHITE) ? BITBOARD_RANK_3 : BITBOARD_RANK_6;
+        uint64_t doublePushedPawn = shiftLeftBasedOnColor(color, pushedPawn & doublePushRankMask, 8) & emptySquares;
+        bb |= doublePushedPawn;
+
+        // captures
+        uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
+        if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
+        uint64_t peripheralPawnL = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
+        uint64_t peripheralPawnR = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
+        uint64_t captureLPawn = shiftLeftBasedOnColor(color, pawnMask & ~peripheralPawnR, 7) & oppSquares;
+        uint64_t captureRPawn = shiftLeftBasedOnColor(color, pawnMask & ~peripheralPawnL, 9) & oppSquares;
+        bb |= captureLPawn;
+        bb |= captureRPawn;
+
+        return bb;
     }
 
     uint64_t getMask(uint8_t index) {

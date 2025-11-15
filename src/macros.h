@@ -1,5 +1,14 @@
 #pragma once
 
+#define BOT_PERF_CTR
+
+#ifdef BOT_PERF_CTR
+#include <cstdint>
+namespace choco {
+    extern uint64_t consideredMoves;
+}
+#endif
+
 #define A1 (uint8_t)(0)
 #define B1 (uint8_t)(1)
 #define C1 (uint8_t)(2)
