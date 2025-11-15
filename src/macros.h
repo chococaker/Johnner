@@ -72,6 +72,9 @@
 #define G8 (uint8_t)(62)
 #define H8 (uint8_t)(63)
 
+#define INVALID_SQUARE 64
+#define IS_VALID_SQUARE(X) (X < 64)
+
 #define SIDE_WHITE   (uint8_t)(0)
 #define SIDE_BLACK   (uint8_t)(1)
 #define OPPOSITE_SIDE(SIDE) SIDE == SIDE_WHITE ? SIDE_BLACK : SIDE_WHITE
@@ -82,7 +85,8 @@
 #define KNIGHT   (uint8_t)(3)
 #define ROOK     (uint8_t)(4)
 #define PAWN     (uint8_t)(5)
-#define IS_VALID_PIECE(X) X < 6
+#define IS_VALID_PIECE(X) (X < 6)
+#define INVALID_PIECE (uint8_t)(6)
 
 #define BITBOARD_RANK_1   (0xFFULL)
 #define BITBOARD_RANK_2   (0xFF00ULL)

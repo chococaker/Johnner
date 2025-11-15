@@ -13,14 +13,18 @@
 
 void runEvaluator() {
     choco::initBitboards();
-    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    choco::Board bb = choco::Board("rnbqkbnr/pppp1ppp/8/4p3/8/P7/1PPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
     choco::Engine engine(bb);
-    choco::Move move = engine.getBestMove(6);
+    choco::Move move = engine.getBestMove(5);
     bb.makeMove(move);
 
-    std::cout << choco::indexToPrettyString(move.from) << " to " << choco::indexToPrettyString(move.to) << std::endl;
+    std::cout << choco::pieceToPrettyString(move.pieceType)
+              << " "
+              << choco::indexToPrettyString(move.from)
+              << " to " << choco::indexToPrettyString(move.to)
+              << std::endl;
     std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
 
     std::cout << bb.state.activeColor << std::endl;
@@ -33,8 +37,6 @@ void runMoveGenTest() {
 
     choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-    choco::UnmakeMove unmake = bb.makeMove({PAWN, E2, E4});
-    bb.unmakeMove(unmake);
     std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
 }
 

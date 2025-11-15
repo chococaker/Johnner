@@ -12,7 +12,7 @@
 #include "macros.h"
 
 namespace choco {
-    const UnmakeMove INVALID_MOVE = {{0, 0, 100}, 100, {}};
+    const UnmakeMove INVALID_MOVE = {{INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE}, INVALID_PIECE};
 
     namespace {
         // https://stackoverflow.com/a/46931770
@@ -28,31 +28,13 @@ namespace choco {
             res.push_back(s.substr(pos_start));
             return res;
         }
-        
-        uint8_t countTrailingZeros(uint64_t n) {
-            if (n == 0) {
-                return 0;
-            }
-            #if defined(__GNUC__) || defined(__clang__)
-                return __builtin_ctzll(n);
-            #elif defined(_MSC_VER)
-                return __tzcnt_u64(n);
-            #else // fallback
-                unsigned int count = 0;
-                while ((n & 1) == 0 && count < 64) {
-                    n >>= 1;
-                    count++;
-                }
-                return count;
-            #endif
-        }
 
         void addOffsetExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t offset, std::vector<Move>& moveVec) {
             if (offset > 0) {
                 while (bitboard) {
                     uint8_t index = countTrailingZeros(bitboard);
                     bitboard &= ~(1ULL << index);
-                    Move move = { piece, index - offset, index };
+                    Move move = { piece, (uint8_t) (index - offset), index, INVALID_PIECE };
                     moveVec.push_back(move);
                 }
             }
@@ -62,7 +44,7 @@ namespace choco {
             while (bitboard != 0) {
                 uint8_t index = countTrailingZeros(bitboard);
                 bitboard &= ~(1ULL << index);
-                Move move = { piece, originIndex, index };
+                Move move = { piece, originIndex, index, INVALID_PIECE };
                 moveVec.push_back(move);
             }
         }
@@ -356,7 +338,7 @@ namespace choco {
 
     Board::Board() {
         memset(bitboards, 0, sizeof(bitboards));
-        state = { SIDE_WHITE, 0, 0, 100, 0 };
+        state = { SIDE_WHITE, 0, 0, INVALID_SQUARE, 0 };
     }
 
     Board::Board(const std::string& fen) : Board() {
@@ -450,7 +432,7 @@ namespace choco {
         bitboards[side][piece] &= ~getMask(index);
     }
     UnmakeMove Board::makeMove(const Move& move) {
-        UnmakeMove unmakeMove = { .move = move, .pieceTaken = 127, .state = state };
+        UnmakeMove unmakeMove = { .move = move, .pieceTaken = INVALID_PIECE, .state = state };
 
         removePiece(state.activeColor, move.pieceType, move.from);
         putPiece(state.activeColor, move.pieceType, move.to);
@@ -470,17 +452,16 @@ namespace choco {
 
         uint64_t illegalAttackSquares = 0; // squares that are not allowed be attacked if this move is played
 
+        // en passant
+        if (move.pieceType == PAWN && move.to == state.enpassantSquare) {
+            int offset = (state.activeColor == SIDE_WHITE) ? 8 : -8;
+            removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, state.enpassantSquare - offset);
+        }
+
+        state.enpassantSquare = INVALID_SQUARE;
+
         if (move.pieceType == PAWN) {
             state.halfMoveClock = 0;
-
-            // en passant
-            if (move.to == state.enpassantSquare) {
-                int offset = (state.activeColor == SIDE_WHITE) ? 8 : -8;
-                removePiece(OPPOSITE_SIDE(state.activeColor), PAWN, state.enpassantSquare - offset);
-            }
-
-            state.enpassantSquare = 127;
-
             // double push
             if (move.from - move.to == 16 || move.to - move.from == 16) {
                 if (move.from - move.to == 16) {
@@ -546,7 +527,7 @@ namespace choco {
     }
 
     void Board::unmakeMove(const UnmakeMove& unmakeMove) {
-        this->state = unmakeMove.state;
+        state = unmakeMove.state;
         removePiece(state.activeColor, unmakeMove.move.pieceType, unmakeMove.move.to);
         putPiece(state.activeColor, unmakeMove.move.pieceType, unmakeMove.move.from);
 
@@ -590,12 +571,14 @@ namespace choco {
 
     std::vector<Move> Board::generatePLMoves() const {
         std::vector<Move> moves;
+        moves.reserve(44); // avg amount of moves available + a lil extra
         addPawnMoves(moves);
         addBishopMoves(moves);
         addKnightMoves(moves);
         addQueenMoves(moves);
         addRookMoves(moves);
         addKingMoves(moves);
+
         return moves;
     }
 
@@ -665,7 +648,7 @@ namespace choco {
 
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
-        if (state.enpassantSquare < 64) oppSquares |= getMask(state.enpassantSquare);
+        if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
         uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
         uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
         uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 7) & oppSquares;
@@ -771,7 +754,7 @@ namespace choco {
         uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
         return ROOK_ATTACKS[square][hash] & (~getOccupiedBitboard(bitboards[color]));
     }
-    
+
     uint64_t getMask(uint8_t index) {
         return 1ULL << index;
     }
@@ -837,10 +820,10 @@ namespace choco {
                 oss << " ";
             }
 
-            oss << (char) ('A' + rank) << "\n";
+            oss << (char) ('1' + rank) << "\n";
         }
         for (int file = 7; file >= 0; file--) {
-            oss << (char) ('1' + file)  << " ";
+            oss << (char) ('A' + file)  << " ";
         }
         return oss.str();
     }
@@ -866,15 +849,27 @@ namespace choco {
                 
                 else oss << ". ";
             }
-            oss << (char) ('A' + rank) << "\n";
+            oss << (char) ('1' + rank) << "\n";
         }
         for (int file = 7; file >= 0; file--) {
-            oss << char('1' + file) << " ";
+            oss << char('A' + file) << " ";
         }
         std::string str = oss.str();
         return str.erase(str.length() - 1);
     }
 
+    std::string pieceToPrettyString(uint8_t piece) {
+        switch (piece) {
+            case KING: return "King";
+            case QUEEN: return "Queen";
+            case BISHOP: return "Bishop";
+            case KNIGHT: return "Knight";
+            case ROOK: return "Rook";
+            case PAWN: return "Pawn";
+        }
+
+        throw std::invalid_argument("Invalid piece " + std::to_string(piece));
+    }
 
     void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func) {
         while (bitboard) {
@@ -898,5 +893,24 @@ namespace choco {
 
     uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]) {
         return ~getOccupiedBitboard(bitboards);
+    }
+
+
+    uint8_t countTrailingZeros(uint64_t n) {
+        if (n == 0) {
+            return 0;
+        }
+        #if defined(__GNUC__) || defined(__clang__)
+            return __builtin_ctzll(n);
+        #elif defined(_MSC_VER)
+            return __tzcnt_u64(n);
+        #else // fallback
+            unsigned int count = 0;
+            while ((n & 1) == 0 && count < 64) {
+                n >>= 1;
+                count++;
+            }
+            return count;
+        #endif
     }
 } // namespace choco

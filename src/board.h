@@ -79,8 +79,6 @@ namespace choco {
 
         uint8_t countPieces(uint8_t side, uint8_t piece) const;
 
-        uint64_t plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const;
-
         uint64_t plKingMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plQueenMoveBB(uint8_t square, uint8_t color) const;
         uint64_t plBishopMoveBB(uint8_t square, uint8_t color) const;
@@ -105,10 +103,13 @@ namespace choco {
     std::string indexToPrettyString(uint8_t index);
     std::string bitboardToPrettyString(uint64_t bitboard);
     std::string boardToPrettyString(const Board& board);
+    std::string pieceToPrettyString(uint8_t piece);
 
     void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func);
 
     uint64_t getOccupiedBitboard(const uint64_t bitboards[6]);
     uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]);
     uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]);
+
+    uint8_t countTrailingZeros(uint64_t n);
 } // namespace choco

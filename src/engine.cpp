@@ -6,89 +6,75 @@
 #include "macros.h"
 
 namespace choco {
-    static const float MATE_EVAL = 32000; // idk just cause
-    static const float MATE_EVAL_THRESHOLD = MATE_EVAL - 200; // I can spot mate in 200!
+    static const float MATE_EVAL = 32000;
+    static const float MATE_EVAL_THRESHOLD = MATE_EVAL - 500; // I can spot mate in 500, technically!
     
     float staticEvaluate(const Board& board) {
         float eval = 0;
         // material value
-        eval += 9 * board.countPieces(SIDE_WHITE, QUEEN);
-        eval += 5 * board.countPieces(SIDE_WHITE, ROOK);
-        eval += 3 * board.countPieces(SIDE_WHITE, KNIGHT);
-        eval += 3 * board.countPieces(SIDE_WHITE, BISHOP);
-        eval += 1 * board.countPieces(SIDE_WHITE, PAWN);
+        eval += 9 * board.countPieces(board.state.activeColor, QUEEN);
+        eval += 5 * board.countPieces(board.state.activeColor, ROOK);
+        eval += 3 * board.countPieces(board.state.activeColor, KNIGHT);
+        eval += 3 * board.countPieces(board.state.activeColor, BISHOP);
+        eval += 1 * board.countPieces(board.state.activeColor, PAWN);
 
-        eval -= 9 * board.countPieces(SIDE_BLACK, QUEEN);
-        eval -= 5 * board.countPieces(SIDE_BLACK, ROOK);
-        eval -= 3 * board.countPieces(SIDE_BLACK, KNIGHT);
-        eval -= 3 * board.countPieces(SIDE_BLACK, BISHOP);
-        eval -= 1 * board.countPieces(SIDE_BLACK, PAWN);
+        uint8_t oppositeSide = OPPOSITE_SIDE(board.state.activeColor);
+        eval -= 9 * board.countPieces(oppositeSide, QUEEN);
+        eval -= 5 * board.countPieces(oppositeSide, ROOK);
+        eval -= 3 * board.countPieces(oppositeSide, KNIGHT);
+        eval -= 3 * board.countPieces(oppositeSide, BISHOP);
+        eval -= 1 * board.countPieces(oppositeSide, PAWN);
         
         return eval;
     }
 
-    float evaluate(Board& board, int depth, float alpha, float beta) {
-        if (board.state.halfMoveClock == 100) return 0;
+    float quiesce(Board& board, float alpha, float beta) {
+        // stand pat
+        int bestValue = staticEvaluate(board);
+        if(bestValue >= beta) return bestValue;
+        if(bestValue > alpha) alpha = bestValue;
 
-        if (depth == 0) return staticEvaluate(board);
         std::vector<Move> moves = board.generatePLMoves();
-        if (board.state.activeColor == SIDE_WHITE) {
-            float maxEval = -MATE_EVAL_THRESHOLD;
-            for (const Move& move : moves) {
-                UnmakeMove unmakeMove = board.makeMove(move);
-                if (unmakeMove.isValid()) {
-                    float eval = evaluate(board, depth - 1, alpha, beta);
-                    board.unmakeMove(unmakeMove);
-                    maxEval = std::max(maxEval, eval);
-                    if (maxEval >= beta) break; // beta cutoff
-                    alpha = std::max(alpha, maxEval);
+        uint64_t opponentPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
+        for (const Move& move : moves)  {
+            if (!(getMask(move.to) & opponentPieces)) continue;
+            UnmakeMove unmake = board.makeMove(move);
+            if (unmake.isValid()) {
+                float score = -quiesce(board, -beta, -alpha);
+                board.unmakeMove(unmake);
+                if(score > bestValue) {
+                    bestValue = score;
+                    if (score > alpha) alpha = score;
                 }
+                if (score >= beta) return bestValue; // failsoft
             }
-
-            if (maxEval < -MATE_EVAL_THRESHOLD) maxEval += 1;
-            if (maxEval > MATE_EVAL_THRESHOLD) maxEval -= 1;
-            return maxEval;
-        } else {
-            float minEval = MATE_EVAL_THRESHOLD;
-            for (const Move& move : moves) {
-                UnmakeMove unmakeMove = board.makeMove(move);
-                if (unmakeMove.isValid()) {
-                    float eval = evaluate(board, depth - 1, alpha, beta);
-                    board.unmakeMove(unmakeMove);
-                    minEval = std::min(minEval, eval);
-                    if (minEval <= alpha) break; // alpha cutoff
-                    beta = std::min(beta, minEval);
-                }
-            }
-            if (minEval < -MATE_EVAL_THRESHOLD) minEval += 1;
-            if (minEval > MATE_EVAL_THRESHOLD) minEval -= 1;
-            return minEval;
         }
+
+        return bestValue;
     }
 
-    // float quiesce(Board& board, int depth, float alpha, float beta) {
-    //     float eval = staticEvaluate(board);
-    //
-    //     // Stand Pat
-    //     int bestVal = eval;
-    //     if (bestVal >= beta) return bestVal;
-    //     if (bestVal > alpha) alpha = bestVal;
-    //
-    //     // examine every capture
-    //     for (int i = 0; i < 6; i++) {
-    //         uint64_t pieces = board.bitboards[board.state.activeColor][i];
-    //         uint64_t enemyPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
-    //
-    //         iterateIndices(pieces, [&board, enemyPieces](uint8_t index) -> void {
-    //             uint64_t attacks = board.plRookMoveBB(index, board.state.activeColor) & enemyPieces;
-    //             iterateIndices(attacks, [&board, enemyPieces](uint8_t index) -> void {
-    //                 board.makeMove()
-    //             });
-    //         });
-    //     }
-    //
-    //     return bestVal;
-    // }
+    float evaluate(Board& board, float alpha, float beta, int depth) {
+        if (depth == 0) return quiesce(board, alpha, beta);
+
+        float bestValue = -MATE_EVAL;
+        std::vector<Move> moves = board.generatePLMoves();
+        for (const Move& move : moves)  {
+            UnmakeMove unmake = board.makeMove(move);
+            if (unmake.isValid()) {
+                float score = -evaluate(board, -beta, -alpha, depth - 1);
+                board.unmakeMove(unmake);
+                if(score > bestValue) {
+                    bestValue = score;
+                    if (score > alpha)
+                        alpha = score;
+                }
+                if (score >= beta)
+                    return bestValue; // failsoft
+            }
+        }
+
+        return bestValue;
+    }
 
     EvalNode::EvalNode(Board& board, float eval) : board(board), eval(eval) {}
 
@@ -100,25 +86,20 @@ namespace choco {
         Move bestMove(0, 0, 0); // placeholder values
         float bestEval = (head->board.state.activeColor == SIDE_WHITE)
                 ? -std::numeric_limits<float>::infinity() : std::numeric_limits<float>::infinity();
-
-        Board newBoard = Board(head->board);
+        
         for (const Move& move : head->board.generatePLMoves()) {
+            Board newBoard = Board(head->board);
             UnmakeMove unmakeMove = newBoard.makeMove(move);
             if (unmakeMove.isValid()) {
                 std::cout << "Attempting " << indexToPrettyString(move.from)
-                          << " to " << indexToPrettyString(move.to);
-                float eval = evaluate(newBoard, depth,
+                          << " to " << indexToPrettyString(move.to) << ": ";
+                float eval = evaluate(newBoard,
                     -std::numeric_limits<float>::infinity(),
-                    std::numeric_limits<float>::infinity());
+                    std::numeric_limits<float>::infinity(), depth);
 
-                std::cout << "  - " << indexToPrettyString(move.from)
-                          << " to " << indexToPrettyString(move.to)
-                          << ": " << std::to_string(eval) << std::endl;
+                std::cout << std::to_string(eval) << std::endl;
 
-                if (head->board.state.activeColor == SIDE_WHITE && eval > bestEval) {
-                    bestEval = eval;
-                    bestMove = move;
-                } else if (head->board.state.activeColor == SIDE_BLACK && eval < bestEval) {
+                if (eval > bestEval) {
                     bestEval = eval;
                     bestMove = move;
                 }
@@ -127,8 +108,5 @@ namespace choco {
         }
         std::cout << "Evaluation: " << std::to_string(bestEval) << std::endl;
         return bestMove;
-    }
-    void Engine::playMove(const Move& move) const {
-        
     }
 }
