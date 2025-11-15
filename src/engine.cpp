@@ -61,7 +61,7 @@ namespace choco {
         for (const Move& move : moves)  {
             UnmakeMove unmake = board.makeMove(move);
             if (unmake.isValid()) {
-                float score = -evaluate(board, -beta, -alpha, depth - 1);
+                float score = evaluate(board, -beta, -alpha, depth - 1);
                 board.unmakeMove(unmake);
                 if(score > bestValue) {
                     bestValue = score;
