@@ -96,25 +96,8 @@ namespace choco {
         void removePiece(uint8_t side, uint8_t piece, uint8_t index);
     };
 
-    uint64_t getMask(uint8_t index);
-    uint64_t getMask(int rank, int file);
-    uint64_t getRankMask(int rank);
-    uint64_t getFileMask(int file);
-    uint8_t getIndex(int rank, int file);
-    uint8_t getRank(uint8_t index);
-    uint8_t getFile(uint8_t index);
-
     std::string indexToPrettyString(uint8_t index);
     std::string bitboardToPrettyString(uint64_t bitboard);
     std::string boardToPrettyString(const Board& board);
     std::string pieceToPrettyString(uint8_t piece);
-
-    void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func);
-
-    uint64_t getOccupiedBitboard(const uint64_t bitboards[6]);
-    uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]);
-    uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]);
-
-    uint8_t countTrailingZeros(uint64_t n);
-    uint8_t countOnes(uint64_t n);
 } // namespace choco

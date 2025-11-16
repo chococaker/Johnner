@@ -1,3 +1,5 @@
+#include "bithelpers.h"
+
 #include "board.h"
 
 #include <cmath>
@@ -533,7 +535,7 @@ namespace choco {
         state.activeColor = OPPOSITE_SIDE(state.activeColor);
 
         // lazy move legality check. does not check for king attack as engine will avoid moves like that at all costs
-        if (illegalAttackSquares & getAttacks(state.activeColor)) {
+        if (illegalAttackSquares && (illegalAttackSquares & getAttacks(state.activeColor))) {
             this->unmakeMove(unmakeMove);
             return INVALID_MOVE;
         }
@@ -587,8 +589,8 @@ namespace choco {
     std::vector<Move> Board::generatePLMoves() const {
         std::vector<Move> moves;
         moves.reserve(44); // avg amount of moves available + a lil extra
-        addQueenMoves(moves);
         addPawnMoves(moves);
+        addQueenMoves(moves);
         addKnightMoves(moves);
         addBishopMoves(moves);
         addRookMoves(moves);
@@ -602,20 +604,22 @@ namespace choco {
             addOriginExtractedMoves(plKingMoveBB(index, state.activeColor), KING, index, moves);
         });
 
+        uint64_t occupied = getOccupiedBitboard(bitboards);
+
         // castling spaghetti
         if (state.canCastle(state.activeColor, KING)) {
-            uint64_t occupied = getOccupiedBitboard(bitboards);
             uint64_t mask = state.activeColor == SIDE_WHITE ? getMask(F1) | getMask(G1) : getMask(F8) | getMask(G8);
-            occupied &= mask;
-            if (!occupied) moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, G1) : Move(KING, E8, G8));
+            if ((occupied & mask) == 0) {
+                moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, G1) : Move(KING, E8, G8));
+            }
         }
         if (state.canCastle(state.activeColor, QUEEN)) {
-            uint64_t occupied = getOccupiedBitboard(bitboards);
             uint64_t mask = (state.activeColor == SIDE_WHITE)
                             ? getMask(D1) | getMask(C1) | getMask(B1)
                             : getMask(D8) | getMask(C8) | getMask(B8);
-            occupied &= mask;
-            if (!occupied) moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, C1) : Move(KING, E8, C8));
+            if ((occupied & mask) == 0) {
+                moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, C1) : Move(KING, E8, C8));
+            }
         }
     }
 
@@ -643,6 +647,9 @@ namespace choco {
         });
     }
 
+    static const uint64_t PAWN_LEFT_MASK[2]  = { BITBOARD_FILE_H, BITBOARD_FILE_A };
+    static const uint64_t PAWN_RIGHT_MASK[2] = { BITBOARD_FILE_A, BITBOARD_FILE_H };
+
     void Board::addPawnMoves(std::vector<Move>& moves) const {
         int shiftFactor = state.activeColor == SIDE_WHITE ? 1 : -1;
 
@@ -666,10 +673,8 @@ namespace choco {
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
         if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
-        uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
-        uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
-        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 7) & oppSquares;
-        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsL, 9) & oppSquares;
+        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_RIGHT_MASK[color], 7) & oppSquares;
+        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_LEFT_MASK[color], 9) & oppSquares;
         addOffsetExtractedMoves(captureLPawns & ~promotedMask, PAWN, 7 * shiftFactor, moves);
         addOffsetExtractedMoves(captureRPawns & ~promotedMask, PAWN, 9 * shiftFactor, moves);
         addOffsetExtractedPromotionMoves(captureLPawns & promotedMask, 7 * shiftFactor, moves);
@@ -716,10 +721,8 @@ namespace choco {
         });
 
         // pawns
-        uint64_t peripheralPawnsL = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
-        uint64_t peripheralPawnsR = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
-        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsR, 7);
-        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~peripheralPawnsL, 9);
+        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~~PAWN_RIGHT_MASK[color], 7);
+        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~~PAWN_LEFT_MASK[color], 9);
         attacks |= captureLPawns;
         attacks |= captureRPawns;
         
@@ -745,16 +748,17 @@ namespace choco {
 
     uint64_t Board::plQueenMoveBB(uint8_t square, uint8_t color) const {
         uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
+        uint64_t ownOccupiedBitboard = getOccupiedBitboard(bitboards[color]);
 
         const Magic& rookVal = ROOK_TBL[square];
         uint64_t rookRelevantBitboard = occupiedBitboard & rookVal.mask;
         uint16_t rookHash = ((rookRelevantBitboard * rookVal.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
-        uint64_t rookStuff = ROOK_ATTACKS[square][rookHash] & (~getOccupiedBitboard(bitboards[color]));
+        uint64_t rookStuff = ROOK_ATTACKS[square][rookHash] & (~ownOccupiedBitboard);
 
         const Magic& bishopVal = BISHOP_TBL[square];
         uint64_t bishopRelevantBitboard = occupiedBitboard & bishopVal.mask;
         uint16_t bishopHash = ((bishopRelevantBitboard * bishopVal.magic) >> (64 - 9)) & ((1ULL << 9) - 1);
-        uint64_t bishopStuff = BISHOP_ATTACKS[square][bishopHash] & (~getOccupiedBitboard(bitboards[color]));
+        uint64_t bishopStuff = BISHOP_ATTACKS[square][bishopHash] & (~ownOccupiedBitboard);
 
         return rookStuff | bishopStuff;
     }
@@ -794,65 +798,14 @@ namespace choco {
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
         if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
-        uint64_t peripheralPawnL = (color == SIDE_WHITE) ? BITBOARD_FILE_H : BITBOARD_FILE_A;
-        uint64_t peripheralPawnR = (color == SIDE_WHITE) ? BITBOARD_FILE_A : BITBOARD_FILE_H;
-        uint64_t captureLPawn = shiftLeftBasedOnColor(color, pawnMask & ~peripheralPawnR, 7) & oppSquares;
-        uint64_t captureRPawn = shiftLeftBasedOnColor(color, pawnMask & ~peripheralPawnL, 9) & oppSquares;
+        uint64_t captureLPawn = shiftLeftBasedOnColor(color, pawnMask & ~~PAWN_RIGHT_MASK[color], 7) & oppSquares;
+        uint64_t captureRPawn = shiftLeftBasedOnColor(color, pawnMask & ~~PAWN_RIGHT_MASK[color], 9) & oppSquares;
         bb |= captureLPawn;
         bb |= captureRPawn;
 
         return bb;
     }
 
-    uint64_t getMask(uint8_t index) {
-        return 1ULL << index;
-    }
-
-    uint64_t getMask(int rank, int file) {
-        return getMask(getIndex(rank, file));
-    }
-
-    uint64_t getRankMask(int rank) {
-        switch (rank) {
-            case 0: return BITBOARD_RANK_1;
-            case 1: return BITBOARD_RANK_2;
-            case 2: return BITBOARD_RANK_3;
-            case 3: return BITBOARD_RANK_4;
-            case 4: return BITBOARD_RANK_5;
-            case 5: return BITBOARD_RANK_6;
-            case 6: return BITBOARD_RANK_7;
-            case 7: return BITBOARD_RANK_8;
-        }
-
-        throw std::invalid_argument("OOB rank " + std::to_string(rank));
-    }
-
-    uint64_t getFileMask(int file) {
-        switch (file) {
-            case 0: return BITBOARD_FILE_A;
-            case 1: return BITBOARD_FILE_B;
-            case 2: return BITBOARD_FILE_C;
-            case 3: return BITBOARD_FILE_D;
-            case 4: return BITBOARD_FILE_E;
-            case 5: return BITBOARD_FILE_F;
-            case 6: return BITBOARD_FILE_G;
-            case 7: return BITBOARD_FILE_H;
-        }
-
-        throw std::invalid_argument("OOB file " + std::to_string(file));
-    }
-
-    uint8_t getIndex(int rank, int file) {
-        return (rank * 8) + file;
-    }
-
-    uint8_t getRank(uint8_t index) {
-        return index / 8;
-    }
-
-    uint8_t getFile(uint8_t index) {
-        return index % 8;
-    }
 
     std::string indexToPrettyString(uint8_t index) {
         return std::string(1, (index % 8) + 'A') + std::to_string(index / 8 + 1);
@@ -919,68 +872,4 @@ namespace choco {
 
         throw std::invalid_argument("Invalid piece " + std::to_string(piece));
     }
-
-    void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func) {
-        while (bitboard) {
-            uint8_t index = countTrailingZeros(bitboard);
-            bitboard &= ~getMask(index);
-            func(index);
-        }
-    }
-
-    uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
-        uint64_t bitboard = 0;
-        for (size_t i = 0; i < 6; i++) {
-            bitboard |= bitboards[i];
-        }
-        return bitboard;
-    }
-
-    uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]) {
-        return getOccupiedBitboard(bitboards[0]) | getOccupiedBitboard(bitboards[1]);
-    }
-
-    uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]) {
-        return ~getOccupiedBitboard(bitboards);
-    }
-
-
-    uint8_t countTrailingZeros(uint64_t n) {
-        if (n == 0) {
-            return 0;
-        }
-        #if defined(__GNUC__) || defined(__clang__)
-            return __builtin_ctzll(n);
-        #elif defined(_MSC_VER)
-            return __tzcnt_u64(n);
-        #else // fallback
-            unsigned int count = 0;
-            while ((n & 1) == 0 && count < 64) {
-                n >>= 1;
-                count++;
-            }
-            return count;
-        #endif
-    }
-
-    uint8_t countOnes(uint64_t n) {
-        #if defined(__GNUC__) || defined(__clang__)
-            // GCC and Clang use __builtin_popcountll for unsigned long long (64-bit)
-            // Note: The return value of __builtin_popcountll is 'int', cast to 'uint8_t'
-            return static_cast<uint8_t>(__builtin_popcountll(n));
-        #elif defined(_MSC_VER)
-            // MSVC uses the _popcnt64 intrinsic
-            // Note: The return value of __popcnt64 is 'unsigned __int64', cast to 'uint8_t'
-            return static_cast<uint8_t>(__popcnt64(n));
-        #else 
-            // Fallback to Brian Kernighan's algorithm (portable C++14)
-            uint8_t count = 0;
-            while (n > 0) {
-                n &= (n - 1); // Unsets the rightmost set bit
-                count++;
-            }
-            return count;
-        #endif
-    }
-
 } // namespace choco

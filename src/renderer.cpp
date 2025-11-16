@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include "macros.h"
+#include "bithelpers.h"
 
 #define LIGHT_SQUARE_COLOR CLITERAL(Color){ 255, 253, 208, 255 }
 #define DARK_SQUARE_COLOR  CLITERAL(Color){ 241, 195, 142, 255 }
@@ -62,7 +63,7 @@ namespace choco {
     void drawBitboard(uint64_t bitboard, const Texture2D& texture) {
         for (int rank = 0; rank < 8; rank++) {
             for (int file = 0; file < 8; file++) {
-                uint64_t mask = choco::getMask(rank, file);
+                uint64_t mask = getMask(rank, file);
                 if (bitboard & mask) {
                     Rectangle sourceRec = { 0.0f, 0.0f, (float) texture.width, (float) texture.height };
                     Rectangle destRec = { (7 - file) * 100.0f, rank * 100.0f, 100.0f, 100.0f };

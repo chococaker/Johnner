@@ -15,11 +15,11 @@ void runEvaluator() {
     choco::initBitboards();
     choco::initTT();
 
-    choco::Board bb = choco::Board("rn2k3/pbp1n2B/1p3B1p/2p5/8/5P2/P2P2PP/1N2K2R w KAhq - 0 1");
+    choco::Board bb = choco::Board("qqqkqqqq/8/8/8/8/8/8/QQQKQQQQ w - - 0 1");
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
     choco::Engine engine(bb);
-    choco::Move move = engine.getBestMove(4);
+    choco::Move move = engine.getBestMove(6);
     bb.makeMove(move);
 
     std::cout << choco::pieceToPrettyString(move.pieceType)
@@ -51,7 +51,7 @@ void runRenderer() {
     InitWindow(screenWidth, screenHeight, "Johnner Chess Engine");
     SetTargetFPS(60);
 
-    choco::Board bb = choco::Board("rn2k3/pbp1n2B/1p3B1p/2p5/8/5P2/P2P2PP/1N2K2R w Kq - 0 1");
+    choco::Board bb = choco::Board("r1bqkb1r/ppp2ppp/2np1n2/1B2pQ2/4P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 1");
     
     choco::TextureMgr tMgr;
     choco::Renderer renderer = choco::Renderer(tMgr);
