@@ -4,6 +4,8 @@
 #include "board.h"
 
 namespace choco {
+    void initTT(); // should be called before any engine stuff
+    
     struct EvalNode {
         EvalNode(Board& board, float eval);
 

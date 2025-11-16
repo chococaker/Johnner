@@ -609,7 +609,7 @@ namespace choco {
         // castling spaghetti
         if (state.canCastle(state.activeColor, KING)) {
             uint64_t occupied = getOccupiedBitboard(bitboards);
-            uint64_t mask = state.activeColor == SIDE_WHITE ? F1 | G1 : F8 | G8;
+            uint64_t mask = state.activeColor == SIDE_WHITE ? getMask(F1) | getMask(G1) : getMask(F8) | getMask(G8);
             occupied &= mask;
             if (!occupied) moves.push_back(state.activeColor == SIDE_WHITE ? Move(KING, E1, G1) : Move(KING, E8, G8));
         }
@@ -966,4 +966,25 @@ namespace choco {
             return count;
         #endif
     }
+
+    uint8_t countOnes(uint64_t n) {
+        #if defined(__GNUC__) || defined(__clang__)
+            // GCC and Clang use __builtin_popcountll for unsigned long long (64-bit)
+            // Note: The return value of __builtin_popcountll is 'int', cast to 'uint8_t'
+            return static_cast<uint8_t>(__builtin_popcountll(n));
+        #elif defined(_MSC_VER)
+            // MSVC uses the _popcnt64 intrinsic
+            // Note: The return value of __popcnt64 is 'unsigned __int64', cast to 'uint8_t'
+            return static_cast<uint8_t>(__popcnt64(n));
+        #else 
+            // Fallback to Brian Kernighan's algorithm (portable C++14)
+            uint8_t count = 0;
+            while (n > 0) {
+                n &= (n - 1); // Unsets the rightmost set bit
+                count++;
+            }
+            return count;
+        #endif
+    }
+
 } // namespace choco

@@ -8,6 +8,7 @@
 
 namespace choco {
     void initBitboards(); // should be called before any move generation
+    
     class GameState {
     public:
         uint8_t activeColor;
@@ -115,4 +116,5 @@ namespace choco {
     uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]);
 
     uint8_t countTrailingZeros(uint64_t n);
+    uint8_t countOnes(uint64_t n);
 } // namespace choco
