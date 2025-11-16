@@ -591,9 +591,9 @@ namespace choco {
 
         std::vector<Move> moves;
         moves.reserve(44); // avg amount of moves available + a lil extra
+        addQueenMoves(moves);
         addPawnMoves(moves);
         addKnightMoves(moves);
-        addQueenMoves(moves);
         addBishopMoves(moves);
         addRookMoves(moves);
         addKingMoves(moves);

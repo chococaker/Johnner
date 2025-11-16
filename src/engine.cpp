@@ -44,6 +44,8 @@ namespace choco {
                 TRANSPOSITION_HASHES[i][j] = engine();
             }
         }
+
+        transpositionTable.reserve(16000000); // 1 MILLION POSITIONS!!!!!
     }
 
     uint64_t getHash(const Board& board) {
@@ -222,7 +224,6 @@ namespace choco {
                 return transpositionTable[hashA].eval > transpositionTable[hashB].eval;
             }
         );
-
         if (maxIt != moves.begin()) {
             std::iter_swap(moves.begin(), maxIt);
         }
@@ -255,8 +256,7 @@ namespace choco {
 
     Move Engine::getBestMove(uint16_t depth) {
         Move bestMove(0, 0, 0); // placeholder values
-        float bestEval = (head->board.state.activeColor == SIDE_WHITE)
-                ? -std::numeric_limits<float>::infinity() : std::numeric_limits<float>::infinity();
+        float bestEval = -std::numeric_limits<float>::infinity();
         
         std::vector<Move> plMoves = head->board.generatePLMoves();
         
@@ -265,17 +265,19 @@ namespace choco {
             if (unmakeMove.isValid()) {
                 std::cout << "Attempting " << indexToPrettyString(move.from)
                           << " to " << indexToPrettyString(move.to) << ": ";
-                float eval = evaluate(head->board,
-                    -std::numeric_limits<float>::infinity(),
-                    std::numeric_limits<float>::infinity(), depth);
-                    head->board.unmakeMove(unmakeMove);
+                float eval;
+                for (int i = 1; i <= depth; i++) { // fake iterative deepening optimization
+                    std::cout << std::flush << "..." << std::to_string(i);
+                    eval = evaluate(head->board,
+                        std::numeric_limits<float>::infinity(),
+                        -std::numeric_limits<float>::infinity(), i);
+                }
 
-                std::cout << std::to_string(eval) << std::endl;
+                head->board.unmakeMove(unmakeMove);
 
-                if (head->board.state.activeColor == SIDE_WHITE && eval > bestEval) {
-                    bestEval = eval;
-                    bestMove = move;
-                } else if (head->board.state.activeColor == SIDE_BLACK && eval < bestEval) {
+                std::cout << ": " << std::to_string(eval) << std::endl;
+
+                if (eval > bestEval) {
                     bestEval = eval;
                     bestMove = move;
                 }
