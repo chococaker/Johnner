@@ -585,10 +585,6 @@ namespace choco {
     }
 
     std::vector<Move> Board::generatePLMoves() const {
-#ifdef BOT_PERF_CTR
-        consideredMoves++;
-#endif
-
         std::vector<Move> moves;
         moves.reserve(44); // avg amount of moves available + a lil extra
         addQueenMoves(moves);

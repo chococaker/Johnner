@@ -45,7 +45,7 @@ namespace choco {
             }
         }
 
-        transpositionTable.reserve(16000000); // 1 MILLION POSITIONS!!!!!
+        transpositionTable.reserve(32000000); // 32 MILLION POSITIONS!!!!!
     }
 
     uint64_t getHash(const Board& board) {
@@ -134,7 +134,7 @@ namespace choco {
             10, 10, 20, 30, 30, 20, 10, 10,
             5,  5, 10, 25, 25, 10,  5,  5,
             0,  0,  0, 20, 20,  0,  0,  0,
-            5, -5,-10,  0,  0,-10, -5,  5,
+            5, -5,-10, 0, 0,-10, -5,  5,
             5, 10, 10,-20,-20, 10, 10,  5,
             0,  0,  0,  0,  0,  0,  0,  0
         }
@@ -182,6 +182,9 @@ namespace choco {
                 && !IS_VALID_PIECE(move.promotionType)) continue; // promotion
             UnmakeMove unmake = board.makeMove(move);
             if (unmake.isValid()) {
+#ifdef BOT_PERF_CTR
+                consideredMoves++;
+#endif
                 float score = -quiesce(board, -beta, -alpha);
                 board.unmakeMove(unmake);
                 if(score > bestValue) {
@@ -231,6 +234,9 @@ namespace choco {
         for (const Move& move : moves)  {
             UnmakeMove unmake = board.makeMove(move);
             if (unmake.isValid()) {
+#ifdef BOT_PERF_CTR
+                consideredMoves++;
+#endif
                 float score = -evaluate(board, -beta, -alpha, depth - 1);
                 board.unmakeMove(unmake);
                 if (score > bestValue) {
@@ -268,9 +274,9 @@ namespace choco {
                 float eval;
                 for (int i = 1; i <= depth; i++) { // fake iterative deepening optimization
                     std::cout << std::flush << "..." << std::to_string(i);
-                    eval = evaluate(head->board,
-                        std::numeric_limits<float>::infinity(),
-                        -std::numeric_limits<float>::infinity(), i);
+                    eval = -evaluate(head->board, // idk y its negative (it breaks otherwise) but so be it
+                        -std::numeric_limits<float>::infinity(),
+                        std::numeric_limits<float>::infinity(), i);
                 }
 
                 head->board.unmakeMove(unmakeMove);
