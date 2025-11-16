@@ -66,7 +66,10 @@
 			"text_encoding": "cpp",
 			"variant": "cpp",
 			"cstring": "cpp",
-			"map": "cpp"
+			"map": "cpp",
+			"chrono": "cpp",
+			"ratio": "cpp",
+			"iomanip": "cpp"
 		},
 		"git.autoRepositoryDetection": true,
 		"git.enabled": true

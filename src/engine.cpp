@@ -5,9 +5,27 @@
 #include <random>
 #include <unordered_map>
 
+#ifdef BOT_PERF_CTR
+        #include <chrono>
+#endif
+
 #include "macros.h"
 
 namespace choco {
+    namespace {
+#ifdef BOT_PERF_CTR
+        int64_t getCurrentMs() {
+            auto now = std::chrono::system_clock::now();
+
+            auto duration = now.time_since_epoch();
+
+            return std::chrono::duration_cast<std::chrono::milliseconds>(
+                    duration)
+                    .count();
+        }
+#endif
+    }
+
     static const float MATE_EVAL = 32000;
     static const float MATE_EVAL_THRESHOLD = MATE_EVAL - 500; // I can spot mate in 500, technically!
     
@@ -172,6 +190,8 @@ namespace choco {
         if (bestValue >= beta) return bestValue;
         alpha = std::max(alpha, bestValue);
 
+        uint64_t boardHash = getHash(board);
+
         std::vector<Move> moves = board.generatePLMoves();
         uint64_t opponentPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
         for (const Move& move : moves)  {
@@ -187,12 +207,21 @@ namespace choco {
 #endif
                 float score = -quiesce(board, -beta, -alpha);
                 board.unmakeMove(unmake);
-                if(score > bestValue) {
+                if (score > bestValue) {
                     bestValue = score;
                     alpha = std::max(alpha, score);
                 }
-                if (score >= beta) return bestValue; // failsoft
+                if (score >= beta) {
+                    if (transpositionTable.count(!boardHash)) { // -1 depth; just helps w/ move ordering
+                        transpositionTable[boardHash] = { -1, score };
+                    }
+                    return bestValue;
+                } // failsoft
             }
+        }
+
+        if (transpositionTable.count(!boardHash)) { // -1 depth; just helps w/ move ordering
+            transpositionTable[boardHash] = { -1, bestValue };
         }
 
         return bestValue;
@@ -209,26 +238,33 @@ namespace choco {
 
         float bestValue = -MATE_EVAL;
         std::vector<Move> moves = board.generatePLMoves();
-        // PV
-        auto maxIt = std::max_element(moves.begin(), moves.end(),
-            [&board](const Move& a, const Move& b) {
-                UnmakeMove unmake = board.makeMove(a);
-                if (!unmake.isValid()) return false;
-                uint64_t hashA = getHash(board);
-                board.unmakeMove(unmake);
-                if (!transpositionTable.count(hashA)) return false;
 
-                unmake = board.makeMove(b);
-                if (!unmake.isValid()) return true;
-                uint64_t hashB = getHash(board);
-                board.unmakeMove(unmake);
-                if (!transpositionTable.count(hashB)) return true;
+        if (depth >= 1) {
+            // PV
+            auto maxIt = std::max_element(moves.begin(), moves.end(),
+                [&board](const Move& a, const Move& b) {
+                    UnmakeMove unmake = board.makeMove(a);
+                    if (!unmake.isValid()) return false;
+                    uint64_t hashA = getHash(board);
+                    if (!transpositionTable.count(hashA)) {
+                        transpositionTable[hashA] = { -1, staticEvaluate(board) };
+                    }
+                    board.unmakeMove(unmake);
 
-                return transpositionTable[hashA].eval > transpositionTable[hashB].eval;
+                    unmake = board.makeMove(b);
+                    if (!unmake.isValid()) return true;
+                    uint64_t hashB = getHash(board);
+                    if (!transpositionTable.count(hashB)) {
+                        transpositionTable[hashB] = { -1, staticEvaluate(board) };
+                    }
+                    board.unmakeMove(unmake);
+
+                    return transpositionTable[hashA].eval > transpositionTable[hashB].eval;
+                }
+            );
+            if (maxIt != moves.begin()) {
+                std::iter_swap(moves.begin(), maxIt);
             }
-        );
-        if (maxIt != moves.begin()) {
-            std::iter_swap(moves.begin(), maxIt);
         }
 
         for (const Move& move : moves)  {
@@ -271,6 +307,7 @@ namespace choco {
             if (unmakeMove.isValid()) {
                 std::cout << "Attempting " << indexToPrettyString(move.from)
                           << " to " << indexToPrettyString(move.to) << ": ";
+                int64_t ms = getCurrentMs();
                 float eval;
                 for (int i = 1; i <= depth; i++) { // fake iterative deepening optimization
                     std::cout << std::flush << "..." << std::to_string(i);
@@ -281,7 +318,7 @@ namespace choco {
 
                 head->board.unmakeMove(unmakeMove);
 
-                std::cout << ": " << std::to_string(eval) << std::endl;
+                std::cout << ": " << std::to_string(eval) << " (" << std::to_string(getCurrentMs() - ms) << "ms)" << std::endl;
 
                 if (eval > bestEval) {
                     bestEval = eval;
