@@ -41,7 +41,7 @@ namespace choco {
     constexpr uint64_t TT_MASK = TT_SIZE - 1;
 
     static TTEntry TT[TT_SIZE];
-    static TTEntry QTT[TT_SIZE];
+    static TTEntry QTT[TT_SIZE]; // quiescence
 
     inline TTEntry& tt_probe(uint64_t key) {
         return TT[key & TT_MASK];
@@ -85,6 +85,16 @@ namespace choco {
         e.eval = eval;
         e.depth = 0;
         e.flag = TT_EXACT;
+    }
+
+    static Move KTT[100][2]; // killer moves
+
+    inline void ktt_clear(uint64_t depth) {
+
+    }
+
+    inline void ktt_lookup(uint64_t depth, Move& out) {
+
     }
 
     static uint64_t TRANSPOSITION_HASHES[15][64] = {0};
@@ -158,14 +168,7 @@ namespace choco {
             hash ^= TRANSPOSITION_HASHES[13][2];
         if ((nextMove.from == H8 || nextMove.to == H8) && board.state.canCastle(SIDE_BLACK, QUEEN))
             hash ^= TRANSPOSITION_HASHES[13][3];
-
-        UnmakeMove unmake = board.makeMove(nextMove);
-        if (unmake.isValid()) {
-            uint64_t hash = getHash(board);
-            board.unmakeMove(unmake);
-            return hash;
-        }
-
+        
         // undo getHash(Board&), since the en passant square has changed
         if (IS_VALID_SQUARE(board.state.enpassantSquare)) {
             hash ^= TRANSPOSITION_HASHES[14][getFile(board.state.enpassantSquare)];
@@ -341,12 +344,27 @@ namespace choco {
 
         std::vector<Move> moves = board.generatePLMoves();
 
+        // MOVE ORDERING
+        // TT move
         if (tt_lookup(key, entry, 0)) {
             auto it = std::find(moves.begin(), moves.end(), entry.bestMove);
             if (it != moves.end()) {
                 std::rotate(moves.begin(), it, it + 1);
             }
         }
+        // MVV-LVA
+        if (moves.size() > 2) {
+            std::sort(moves.begin() + 1, moves.end(), [&board](const Move& a, const Move& b) -> bool {
+                uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
+                uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
+
+                float aValuation = (capturedPieceA == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[a.pieceType];
+                float bValuation = (capturedPieceB == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[b.pieceType];
+
+                return aValuation > bValuation;
+            });
+        }
+
 
         for (const Move& m : moves) {
             UnmakeMove u = board.makeMove(m);

@@ -15,11 +15,11 @@ void runEvaluator() {
     choco::initBitboards();
     choco::initTT();
 
-    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    choco::Board bb = choco::Board("r1bq1rk1/ppp1npbp/2npp1p1/8/2PPPB2/2N2N2/PP2BPPP/R2Q1RK1 b - - 1 8");
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
     choco::Engine engine(bb);
-    choco::Move move = engine.getBestMove(6);
+    choco::Move move = engine.getBestMove(3);
     bb.makeMove(move);
 
     std::cout << choco::pieceToPrettyString(move.pieceType)
