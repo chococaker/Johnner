@@ -24,6 +24,8 @@ namespace choco {
 
     class Move {
     public:
+        Move() { }
+
         Move(uint8_t pieceType, uint8_t from, uint8_t to)
                 : pieceType(pieceType), from(from), to(to), promotionType(0) { }
 

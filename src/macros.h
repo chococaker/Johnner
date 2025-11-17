@@ -86,7 +86,7 @@ namespace choco {
 
 #define SIDE_WHITE   (uint8_t)(0)
 #define SIDE_BLACK   (uint8_t)(1)
-#define OPPOSITE_SIDE(SIDE) SIDE == SIDE_WHITE ? SIDE_BLACK : SIDE_WHITE
+#define OPPOSITE_SIDE(SIDE) (!SIDE)
 
 #define KING     (uint8_t)(0)
 #define QUEEN    (uint8_t)(1)

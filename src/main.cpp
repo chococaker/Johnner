@@ -15,7 +15,7 @@ void runEvaluator() {
     choco::initBitboards();
     choco::initTT();
 
-    choco::Board bb = choco::Board("qqqkqqqq/8/8/8/8/8/8/QQQKQQQQ w - - 0 1");
+    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
     choco::Engine engine(bb);
