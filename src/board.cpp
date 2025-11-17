@@ -721,8 +721,8 @@ namespace choco {
         });
 
         // pawns
-        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~~PAWN_RIGHT_MASK[color], 7);
-        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~~PAWN_LEFT_MASK[color], 9);
+        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_RIGHT_MASK[color], 7);
+        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_LEFT_MASK[color], 9);
         attacks |= captureLPawns;
         attacks |= captureRPawns;
         
