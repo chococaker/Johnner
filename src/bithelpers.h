@@ -8,12 +8,12 @@
 #include "macros.h"
 
 namespace choco {
-        constexpr inline uint8_t countTrailingZeros(uint64_t n) {
+    inline uint8_t countTrailingZeros(uint64_t n) {
 #if defined(__GNUC__) || defined(__clang__)
         return __builtin_ctzll(n);
 #elif defined(_MSC_VER)
         return __tzcnt_u64(n);
-#else // fallback
+#else
         unsigned int count = 0;
         while ((n & 1) == 0 && count < 64) {
             n >>= 1;
@@ -22,7 +22,7 @@ namespace choco {
         return count;
 #endif
     }
-    constexpr inline uint8_t countOnes(uint64_t n) {
+    inline uint8_t countOnes(uint64_t n) {
 #if defined(__GNUC__) || defined(__clang__)
         return static_cast<uint8_t>(__builtin_popcountll(n));
 #elif defined(_MSC_VER)
@@ -37,7 +37,7 @@ namespace choco {
 #endif
     }
 
-    constexpr inline uint64_t getFileMask(int file) {
+    inline uint64_t getFileMask(int file) {
         switch (file) {
             case 0: return BITBOARD_FILE_A;
             case 1: return BITBOARD_FILE_B;
@@ -52,7 +52,7 @@ namespace choco {
         return 0ULL;
     }
 
-    constexpr uint64_t getRankMask(int rank) {
+    inline uint64_t getRankMask(int rank) {
         switch (rank) {
             case 0: return BITBOARD_RANK_1;
             case 1: return BITBOARD_RANK_2;
@@ -90,7 +90,7 @@ namespace choco {
     inline void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func) {
         while (bitboard) {
             uint64_t lsb = bitboard & -bitboard;
-            uint8_t index = countTrailingZeros(bitboard);
+            uint8_t index = countTrailingZeros(lsb);
             bitboard ^= lsb;
             func(index);
         }
@@ -98,19 +98,23 @@ namespace choco {
 
     constexpr inline uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
         uint64_t bitboard = 0;
-        for (size_t i = 0; i < 6; i++) {
+        for (int i = 0; i < 6; i++) {
             bitboard |= bitboards[i];
         }
         return bitboard;
     }
     constexpr inline uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]) {
-        return getOccupiedBitboard(bitboards[0]) | getOccupiedBitboard(bitboards[1]);
+        uint64_t bitboard = 0;
+        for (int i = 0; i < 6; i++) {
+            bitboard |= bitboards[0][i] | bitboards[1][i];
+        }
+        return bitboard;
     }
     constexpr inline uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]) {
         return ~getOccupiedBitboard(bitboards);
     }
 
-    constexpr inline uint8_t getPieceOnSquare(uint64_t bitboards[6], uint8_t square) {
+    constexpr inline uint8_t getPieceOnSquare(const uint64_t bitboards[6], uint8_t square) {
         uint64_t mask = getMask(square);
         for (uint8_t i = 0; i < 6; i++) {
             if (bitboards[i] & mask) return i;
@@ -118,9 +122,9 @@ namespace choco {
 
         return INVALID_PIECE;
     }
-    constexpr inline uint8_t getPieceOnSquare(uint64_t bitboards[2][6], uint8_t square) {
+    constexpr inline uint8_t getPieceOnSquare(const uint64_t bitboards[2][6], uint8_t square) {
         uint8_t piece = getPieceOnSquare(bitboards[SIDE_WHITE], square);
-        if (piece == INVALID_PIECE) return getPieceOnSquare(bitboards[SIDE_BLACK], square);
+        return (piece != INVALID_PIECE) ? piece : getPieceOnSquare(bitboards[SIDE_BLACK], square);
     }
 
     template<typename T>

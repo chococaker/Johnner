@@ -137,7 +137,7 @@ namespace choco {
         return hash;
     }
 
-    uint64_t getHash(Board& board, const Move& nextMove) {
+    uint64_t getHash(const Board& board, const Move& nextMove) {
         uint64_t hash = getHash(board);
 
         hash ^= TRANSPOSITION_HASHES[nextMove.pieceType][nextMove.from];
@@ -179,14 +179,14 @@ namespace choco {
             hash ^= TRANSPOSITION_HASHES[15][getFile(nextMove.from)];
         }
 
-        return 0ULL;
+        return hash;
     }
 
-    static const float STATIC_PIECE_VALUES[6] = {
+    static constexpr float STATIC_PIECE_VALUES[6] = {
         1000, 9, 3.2, 3, 5, 1
     };
 
-    static const float PIECE_SQUARE_TABLES[6][64] = {
+    static constexpr float PIECE_SQUARE_TABLES[6][64] = {
         { 
             -30,-40,-40,-50,-50,-40,-40,-30,
             -30,-40,-40,-50,-50,-40,-40,-30,
@@ -282,7 +282,7 @@ namespace choco {
         return eval + mobility * 0.1f + pst * 0.001f;
     }
 
-    int pruned = 0;
+    int nodes = 0;
 
     float quiesce(Board& board, float alpha, float beta) {
         float stand = staticEvaluate(board);
@@ -298,24 +298,36 @@ namespace choco {
         std::vector<Move> moves = board.generatePLMoves();
         uint64_t oppPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
 
+        std::sort(moves.begin(), moves.end(), [&board](const Move& a, const Move& b) -> bool {
+            uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
+            if (capturedPieceA == INVALID_PIECE) return false;
+            uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
+            if (capturedPieceB == INVALID_PIECE) return false;
+
+            float aValuation = STATIC_PIECE_VALUES[a.pieceType];
+            float bValuation = STATIC_PIECE_VALUES[b.pieceType];
+
+            return aValuation > bValuation;
+        });
+
         for (const Move& m : moves) {
             uint64_t toMask = getMask(m.to);
 
             bool capture = toMask & oppPieces;
-            bool promo   = IS_VALID_PIECE(m.promotionType);
+            // bool promo   = IS_VALID_PIECE(m.promotionType);
 
-            if (!capture && !promo)
+            if (!capture)
                 continue;
 
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
 
             float score = -quiesce(board, -beta, -alpha);
+            nodes++;
             board.unmakeMove(u);
 
             if (score >= beta) {
                 qtt_store(key, score);
-                pruned++;
                 return score;
             }
             if (score > alpha) {
@@ -327,8 +339,17 @@ namespace choco {
         return alpha;
     }
 
+    int64_t lastAnalysisMs = 0;
+
     float evaluate(Board& board, float alpha, float beta, int depth) {
         if (depth == 0) return quiesce(board, alpha, beta);
+
+        if (getCurrentMs() - lastAnalysisMs > 1000) {
+            lastAnalysisMs = getCurrentMs();
+            std::cout << std::to_string(nodes) << " n/s" << std::endl;
+            nodes = 0;
+        }
+
 
         uint64_t key = getHash(board);
 
@@ -381,7 +402,7 @@ namespace choco {
 
             if (score >= beta) {
                 tt_store(key, best, depth, TT_BETA, m);
-                pruned++;
+                nodes++;
                 return best;
             }
         }

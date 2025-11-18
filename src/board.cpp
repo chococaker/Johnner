@@ -449,7 +449,7 @@ namespace choco {
         bitboards[side][piece] &= ~getMask(index);
     }
     UnmakeMove Board::makeMove(const Move& move) {
-        UnmakeMove unmakeMove = { .move = move, .pieceTaken = INVALID_PIECE, .state = state };
+        UnmakeMove unmakeMove = { move, INVALID_PIECE, state };
 
         removePiece(state.activeColor, move.pieceType, move.from);
         putPiece(state.activeColor, move.pieceType, move.to);
