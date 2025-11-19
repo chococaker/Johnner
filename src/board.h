@@ -37,8 +37,6 @@ namespace choco {
         uint8_t to;
         uint8_t promotionType;
 
-        int16_t score; // utility for engine
-
         bool operator==(const Move& other);
     };
 

@@ -12,6 +12,7 @@
 
 #include "macros.h"
 #include "bithelpers.h"
+#include "eval.h"
 
 namespace choco {
     namespace {
@@ -182,110 +183,10 @@ namespace choco {
         return hash;
     }
 
-    static constexpr float STATIC_PIECE_VALUES[6] = {
-        1000, 9, 3.2, 3, 5, 1
-    };
-
-    static constexpr float PIECE_SQUARE_TABLES[6][64] = {
-        { 
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -20,-30,-30,-40,-40,-30,-30,-20,
-            -10,-20,-20,-20,-20,-20,-20,-10,
-            20, 20,  0,  0,  0,  0, 20, 20,
-            20, 30, 10,  0,  0, 10, 30, 20
-        },
-        {
-            -20,-10,-10, -5, -5,-10,-10,-20,
-            -10,  0,  0,  0,  0,  0,  0,-10,
-            -10,  0,  5,  5,  5,  5,  0,-10,
-            -5,  0,  5,  5,  5,  5,  0, -5,
-            0,  0,  5,  5,  5,  5,  0, -5,
-            -10,  5,  5,  5,  5,  5,  0,-10,
-            -10,  0,  5,  0,  0,  0,  0,-10,
-            -20,-10,-10, -5, -5,-10,-10,-20
-        },
-        {
-            -20,-10,-10,-10,-10,-10,-10,-20,
-            -10,  0,  0,  0,  0,  0,  0,-10,
-            -10,  0,  5, 10, 10,  5,  0,-10,
-            -10,  5,  5, 10, 10,  5,  5,-10,
-            -10,  0, 10, 10, 10, 10,  0,-10,
-            -10, 10, 10, 10, 10, 10, 10,-10,
-            -10,  5,  0,  0,  0,  0,  5,-10,
-            -20,-10,-10,-10,-10,-10,-10,-20,
-        },
-        {
-            -50,-40,-30,-30,-30,-30,-40,-50,
-            -40,-20,  0,  0,  0,  0,-20,-40,
-            -30,  0, 10, 15, 15, 10,  0,-30,
-            -30,  5, 15, 20, 20, 15,  5,-30,
-            -30,  0, 15, 20, 20, 15,  0,-30,
-            -30,  5, 10, 15, 15, 10,  5,-30,
-            -40,-20,  0,  5,  5,  0,-20,-40,
-            -50,-40,-30,-30,-30,-30,-40,-50,
-        },
-        {
-            0,  0,  0,  0,  0,  0,  0,  0,
-            5, 10, 10, 10, 10, 10, 10,  5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            0,  0,  0,  5,  5,  0,  0,  0
-        },
-        {
-            0,  0,  0,  0,  0,  0,  0,  0,
-            50, 50, 50, 50, 50, 50, 50, 50,
-            10, 10, 20, 30, 30, 20, 10, 10,
-            5,  5, 10, 25, 25, 10,  5,  5,
-            0,  0,  0, 20, 20,  0,  0,  0,
-            5, -5,-10, 0, 0,-10, -5,  5,
-            5, 10, 10,-20,-20, 10, 10,  5,
-            0,  0,  0,  0,  0,  0,  0,  0
-        }
-    };
-
-    float staticEvaluate(const Board& board) {
-        float eval = 0;
-        uint8_t activeColor = board.state.activeColor;
-        uint8_t opp = OPPOSITE_SIDE(activeColor);
-
-        // material
-        for (int i = 1; i < 6; i++) {
-            eval += STATIC_PIECE_VALUES[i] * board.countPieces(activeColor, i);
-            eval -= STATIC_PIECE_VALUES[i] * board.countPieces(opp, i);
-        }
-
-        float mobility = 0;
-        float pst = 0;
-
-        for (int p = 1; p < 6; p++) {
-            iterateIndices(board.bitboards[activeColor][p],
-                [p, &mobility, &board, &pst, activeColor](uint8_t idx){
-                    mobility += countOnes(board.plMoveBB(p, idx, activeColor));
-                    size_t pstIdx = (board.state.activeColor == SIDE_WHITE) ? 63 - p : p;
-                    pst += PIECE_SQUARE_TABLES[p][pstIdx];
-                });
-
-            iterateIndices(board.bitboards[opp][p],
-                [p, &mobility, &board, &pst, opp](uint8_t idx){
-                    mobility -= countOnes(board.plMoveBB(p, idx, opp));
-                    size_t pstIdx = (board.state.activeColor == SIDE_WHITE) ? p : 63 - p;
-                    pst -= PIECE_SQUARE_TABLES[p][pstIdx];
-                });
-        }
-
-        return eval + mobility * 0.1f + pst * 0.001f;
-    }
-
     int nodes = 0;
 
     float quiesce(Board& board, float alpha, float beta) {
-        float stand = staticEvaluate(board);
+        float stand = evaluate(board);
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
 
@@ -314,9 +215,9 @@ namespace choco {
             uint64_t toMask = getMask(m.to);
 
             bool capture = toMask & oppPieces;
-            // bool promo   = IS_VALID_PIECE(m.promotionType);
+            bool promo   = IS_VALID_PIECE(m.promotionType);
 
-            if (!capture)
+            if (!capture && !promo)
                 continue;
 
             UnmakeMove u = board.makeMove(m);
@@ -385,7 +286,6 @@ namespace choco {
                 return aValuation > bValuation;
             });
         }
-
 
         for (const Move& m : moves) {
             UnmakeMove u = board.makeMove(m);

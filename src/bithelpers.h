@@ -88,10 +88,9 @@ namespace choco {
     }
 
     inline void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func) {
-        while (bitboard) {
-            uint64_t lsb = bitboard & -bitboard;
-            uint8_t index = countTrailingZeros(lsb);
-            bitboard ^= lsb;
+        while (bitboard != 0) {
+            uint8_t index = countTrailingZeros(bitboard);
+            bitboard = bitboard & (bitboard - 1);
             func(index);
         }
     }
