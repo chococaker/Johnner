@@ -97,18 +97,15 @@ namespace choco {
     }
 
     constexpr inline uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
-        uint64_t bitboard = 0;
-        for (int i = 0; i < 6; i++) {
-            bitboard |= bitboards[i];
-        }
-        return bitboard;
+        return bitboards[KING]
+             | bitboards[QUEEN]
+             | bitboards[BISHOP] 
+             | bitboards[KNIGHT] 
+             | bitboards[ROOK] 
+             | bitboards[PAWN];
     }
     constexpr inline uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]) {
-        uint64_t bitboard = 0;
-        for (int i = 0; i < 6; i++) {
-            bitboard |= bitboards[0][i] | bitboards[1][i];
-        }
-        return bitboard;
+        return getOccupiedBitboard(bitboards[SIDE_WHITE]) | getOccupiedBitboard(bitboards[SIDE_BLACK]);
     }
     constexpr inline uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]) {
         return ~getOccupiedBitboard(bitboards);
@@ -129,7 +126,6 @@ namespace choco {
 
     template<typename T>
     constexpr inline T unsignedDist(T a, T b) {
-        if (a > b) return a - b;
-        else return b - a;
+         return a > b ? a - b : b - a;
     }
 } // namespace choco

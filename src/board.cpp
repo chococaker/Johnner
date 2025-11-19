@@ -640,8 +640,8 @@ namespace choco {
         });
     }
 
-    static const uint64_t PAWN_LEFT_MASK[2]  = { BITBOARD_FILE_H, BITBOARD_FILE_A };
-    static const uint64_t PAWN_RIGHT_MASK[2] = { BITBOARD_FILE_A, BITBOARD_FILE_H };
+    static constexpr uint64_t PAWN_LEFT_MASK[2]  = { BITBOARD_FILE_H, BITBOARD_FILE_A };
+    static constexpr uint64_t PAWN_RIGHT_MASK[2] = { BITBOARD_FILE_A, BITBOARD_FILE_H };
 
     void Board::addPawnMoves(std::vector<Move>& moves) const {
         int shiftFactor = state.activeColor == SIDE_WHITE ? 1 : -1;
