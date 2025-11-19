@@ -801,7 +801,7 @@ namespace choco {
 
 
     std::string indexToPrettyString(uint8_t index) {
-        return std::string(1, (index % 8) + 'e') + std::to_string(index / 8 + 1);
+        return std::string(1, (index % 8) + 'a') + std::to_string(index / 8 + 1);
     }
     
     // prints the bitboard from black's perspective
