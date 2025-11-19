@@ -27,7 +27,7 @@ namespace choco {
         Move() { }
 
         Move(uint8_t pieceType, uint8_t from, uint8_t to)
-                : pieceType(pieceType), from(from), to(to), promotionType(0) { }
+                : pieceType(pieceType), from(from), to(to), promotionType(6) { }
 
         Move(uint8_t pieceType, uint8_t from, uint8_t to, uint8_t promotionType)
                 : pieceType(pieceType), from(from), to(to), promotionType(promotionType) { }
@@ -58,7 +58,7 @@ namespace choco {
     class Board {
     public:
         Board();
-        Board(const std::string& fen);
+        Board(std::string fen);
 
         uint64_t bitboards[2][6];
         GameState state;

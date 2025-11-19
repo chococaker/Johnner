@@ -76,7 +76,7 @@ namespace choco {
         }
 
         // creates a bitboard with a line of 1s by stepping until it encounters a 1 (inclusive) or border on the parameter bitboard
-        uint64_t walk(uint8_t fileStep, uint8_t rankStep, uint64_t occupiedBoard, uint8_t originIndex) { // Renamed 'bitboard' to 'occupiedBoard' for clarity
+        inline uint64_t walk(uint8_t fileStep, uint8_t rankStep, uint64_t occupiedBoard, uint8_t originIndex) { // Renamed 'bitboard' to 'occupiedBoard' for clarity
             int8_t rank = getRank(originIndex);
             int8_t file = getFile(originIndex);
             uint64_t attacks = 0;
@@ -94,7 +94,7 @@ namespace choco {
             return attacks;
         }
     
-        uint64_t shiftLeftBasedOnColor(uint8_t color, uint64_t val, uint8_t amount) {
+        inline uint64_t shiftLeftBasedOnColor(uint8_t color, uint64_t val, uint8_t amount) {
             if (color == SIDE_WHITE) return val << amount;
             else return val >> amount;
         }
@@ -306,25 +306,10 @@ namespace choco {
 
     // returns number of attempts required to generate magics
     void initBitboards() {
-        std::cout << "Initializing bitboards:" << std::endl;
-
-        std::cout << "  > Initializing rook moves...   ";
         uint64_t rookIterations = initRookBoards(ROOK_SEED);
-        std::cout << "Done (" << rookIterations << " iterations)" << std::endl;
-
-        std::cout << "  > Initializing bishop moves... ";
         uint64_t bishopIterations = initBishopBoards(BISHOP_SEED);
-        std::cout << "Done (" << bishopIterations << " iterations)" << std::endl;
-
-        std::cout << "  > Initializing knight moves... ";
         initKnightBoards();
-        std::cout << "Done" << std::endl;
-
-        std::cout << "  > Initializing king moves...   ";
         initKingBoards();
-        std::cout << "Done" << std::endl;
-
-        std::cout << "  > Finished all." << std::endl;
     }
 
     bool Move::operator==(const Move& other) {
@@ -358,7 +343,15 @@ namespace choco {
         state = { SIDE_WHITE, 0, 0, INVALID_SQUARE, 0 };
     }
 
-    Board::Board(const std::string& fen) : Board() {
+    Board::Board(std::string fen) : Board() {
+        if (fen.starts_with("\"") || fen.starts_with("\'")) {
+            fen.erase(0, 1);
+        }
+
+        if (fen.ends_with("\"") || fen.ends_with("\'")) {
+            fen.pop_back();
+        }
+
         std::vector<std::string> fenParts = split(fen, " ");
         
         // piece positions
@@ -808,7 +801,7 @@ namespace choco {
 
 
     std::string indexToPrettyString(uint8_t index) {
-        return std::string(1, (index % 8) + 'A') + std::to_string(index / 8 + 1);
+        return std::string(1, (index % 8) + 'e') + std::to_string(index / 8 + 1);
     }
     
     // prints the bitboard from black's perspective
