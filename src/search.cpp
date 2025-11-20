@@ -297,9 +297,9 @@ namespace choco {
         float bestEval = -std::numeric_limits<float>::infinity();
 
         for (int d = 1; d <= depth; d++) { // "iterative deepening"
-            std::cout << "Searching " << std::to_string(d) << "-ply:" << std::endl;
+            std::cout << "Searching " << std::to_string(d) << "-ply (";
             std::vector<Move> moves = board.generatePLMoves();
-            std::cout << std::to_string(moves.size()) << std::endl;
+            std::cout << std::to_string(moves.size()) << " PL moves)" << std::endl;
 
             for (const Move& move : moves) {
                 UnmakeMove unmake = board.makeMove(move);

@@ -8,31 +8,30 @@
 #include <stdexcept>
 
 void runEvaluator() {
-    std::cout << "Running eval..." << std::endl;
     choco::initBitboards();
     choco::initTT();
     std::cout << "Finished init" << std::endl;
 
-    choco::Board bb = choco::Board();
+    choco::Board bb = choco::Board("rnbqkb1r/pp3ppp/2p2n2/3pp3/8/3BP3/PPPP1PPP/RNBQK1NR w KQkq - 0 1");
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
     choco::Search engine(bb);
-    // choco::Move move = engine.getBestMove(5);
-    // bb.makeMove(move);
+    choco::Move move = engine.getBestMove(5);
+    bb.makeMove(move);
 
-    // std::cout << choco::pieceToPrettyString(move.pieceType)
-    //           << " "
-    //           << choco::indexToPrettyString(move.from)
-    //           << " to " << choco::indexToPrettyString(move.to);
+    std::cout << choco::pieceToPrettyString(move.pieceType)
+              << " "
+              << choco::indexToPrettyString(move.from)
+              << " to " << choco::indexToPrettyString(move.to);
     
-    // if (IS_VALID_PIECE(move.promotionType)) {
-    //     std::cout << " (" << choco::pieceToPrettyString(move.promotionType) << ")";
-    // }
-    // std::cout << std::endl;
+    if (IS_VALID_PIECE(move.promotionType)) {
+        std::cout << " (" << choco::pieceToPrettyString(move.promotionType) << ")";
+    }
+    std::cout << std::endl;
     
-    // std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
+    std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
 
-    // std::cout << "Done" << std::endl;
+    std::cout << "Done" << std::endl;
 }
 
 void runMoveGenTest() {
@@ -44,12 +43,7 @@ void runMoveGenTest() {
 }
 
 int main() {
-    std::cout << "Running main" << std::endl;
-    choco::initBitboards();
-    choco::initTT();
-    choco::Board bb = choco::Board("rnb1k1nr/p1pp1ppp/1p6/2P5/2P1p3/5N2/PB1PPPPP/1N2KB1R w KAkq - 0 1");
-    choco::Search engine(bb);
-    std::cout << "Exiting main" << std::endl;
+    runEvaluator();
 
     return 0;
 }
