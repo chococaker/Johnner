@@ -6,6 +6,8 @@
 #include <vector>
 #include <functional>
 
+#include "types.h"
+
 namespace choco {
     void initBitboards(); // should be called before any move generation
     
@@ -20,24 +22,6 @@ namespace choco {
         void enableCastling(uint8_t color, uint8_t sidePiece);
         void disableCastling(uint8_t color, uint8_t sidePiece);
         bool canCastle(uint8_t color, uint8_t sidePiece) const;
-    };
-
-    class Move {
-    public:
-        Move() { }
-
-        Move(uint8_t pieceType, uint8_t from, uint8_t to)
-                : pieceType(pieceType), from(from), to(to), promotionType(6) { }
-
-        Move(uint8_t pieceType, uint8_t from, uint8_t to, uint8_t promotionType)
-                : pieceType(pieceType), from(from), to(to), promotionType(promotionType) { }
-
-        uint8_t pieceType;
-        uint8_t from;
-        uint8_t to;
-        uint8_t promotionType;
-
-        bool operator==(const Move& other);
     };
 
     class UnmakeMove {
@@ -72,14 +56,14 @@ namespace choco {
         UnmakeMove makeMove(const Move& move);
         void unmakeMove(const UnmakeMove& move);
 
-        std::vector<Move> generatePLMoves() const;
+        MoveList generatePLMoves() const;
 
-        void addKingMoves(std::vector<Move>& moves) const;
-        void addQueenMoves(std::vector<Move>& moves) const;
-        void addKnightMoves(std::vector<Move>& moves) const;
-        void addBishopMoves(std::vector<Move>& moves) const;
-        void addRookMoves(std::vector<Move>& moves) const;
-        void addPawnMoves(std::vector<Move>& moves) const;
+        void addKingMoves(MoveList& moves) const;
+        void addQueenMoves(MoveList& moves) const;
+        void addKnightMoves(MoveList& moves) const;
+        void addBishopMoves(MoveList& moves) const;
+        void addRookMoves(MoveList& moves) const;
+        void addPawnMoves(MoveList& moves) const;
 
         uint8_t countPieces(uint8_t side, uint8_t piece) const;
 

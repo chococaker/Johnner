@@ -169,20 +169,20 @@ namespace choco {
         if (qtt_lookup(key, cached))
             return cached;
 
-        std::vector<Move> moves = board.generatePLMoves();
+        MoveList moves = board.generatePLMoves();
         uint64_t oppPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
 
-        std::sort(moves.begin(), moves.end(), [&board](const Move& a, const Move& b) -> bool {
-            uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
-            if (capturedPieceA == INVALID_PIECE) return false;
-            uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
-            if (capturedPieceB == INVALID_PIECE) return false;
+        // std::sort(moves.begin(), moves.end(), [&board](const Move& a, const Move& b) -> bool {
+        //     uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
+        //     if (capturedPieceA == INVALID_PIECE) return false;
+        //     uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
+        //     if (capturedPieceB == INVALID_PIECE) return false;
 
-            float aValuation = STATIC_PIECE_VALUES[a.pieceType];
-            float bValuation = STATIC_PIECE_VALUES[b.pieceType];
+        //     float aValuation = STATIC_PIECE_VALUES[a.pieceType];
+        //     float bValuation = STATIC_PIECE_VALUES[b.pieceType];
 
-            return aValuation > bValuation;
-        });
+        //     return aValuation > bValuation;
+        // });
 
         for (const Move& m : moves) {
             uint64_t toMask = getMask(m.to);
@@ -212,11 +212,12 @@ namespace choco {
         qtt_store(key, alpha);
         return alpha;
     }
-
+    
     int64_t lastAnalysisMs = 0;
 
     float Search::negamax(Board& board, float alpha, float beta, int depth) {
         if (depth == 0) return quiesce(board, alpha, beta);
+        // if (depth == 0) return evaluate(board);
 
         if (getCurrentMs() - lastAnalysisMs > 1000) {
             lastAnalysisMs = getCurrentMs();
@@ -237,28 +238,30 @@ namespace choco {
         float best = -MATE_EVAL;
         Move bestMove;
 
-        std::vector<Move> moves = board.generatePLMoves();
+        MoveList moves = board.generatePLMoves();
 
         // MOVE ORDERING
         // TT move
         if (tt_lookup(key, entry, 0)) {
-            auto it = std::find(moves.begin(), moves.end(), entry.bestMove);
-            if (it != moves.end()) {
-                std::rotate(moves.begin(), it, it + 1);
+            for (uint8_t i = 0; i < moves.size(); i++) {
+                if (moves[i] == entry.bestMove) {
+                    moves.swap(0, i);
+                    break;
+                }
             }
         }
         // MVV-LVA
-        if (moves.size() > 2) {
-            std::sort(moves.begin() + 1, moves.end(), [&board](const Move& a, const Move& b) -> bool {
-                uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
-                uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
+        // if (moves.size() > 2) {
+        //     std::sort(moves.begin() + 1, moves.end(), [&board](const Move& a, const Move& b) -> bool {
+        //         uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
+        //         uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
 
-                float aValuation = (capturedPieceA == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[a.pieceType];
-                float bValuation = (capturedPieceB == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[b.pieceType];
+        //         float aValuation = (capturedPieceA == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[a.pieceType];
+        //         float bValuation = (capturedPieceB == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[b.pieceType];
 
-                return aValuation > bValuation;
-            });
-        }
+        //         return aValuation > bValuation;
+        //     });
+        // }
 
         for (const Move& m : moves) {
             UnmakeMove u = board.makeMove(m);
@@ -298,7 +301,7 @@ namespace choco {
 
         for (int d = 1; d <= depth; d++) { // "iterative deepening"
             std::cout << "Searching " << std::to_string(d) << "-ply (";
-            std::vector<Move> moves = board.generatePLMoves();
+            MoveList moves = board.generatePLMoves();
             std::cout << std::to_string(moves.size()) << " PL moves)" << std::endl;
 
             for (const Move& move : moves) {
@@ -322,5 +325,14 @@ namespace choco {
         }
 
         return bestMove;
+    }
+
+    void Search::orderMoves(MoveList& moves) const {
+
+    }
+
+    Search::~Search() {
+        delete TT;
+        delete QTT;
     }
 }

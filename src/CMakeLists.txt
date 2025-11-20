@@ -2,6 +2,7 @@ set(PROJECT_SOURCES
     board.cpp
     search.cpp
     macros.cpp
+    types.cpp
 )
 
 add_library(core STATIC ${PROJECT_SOURCES})

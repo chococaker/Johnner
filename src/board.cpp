@@ -12,6 +12,7 @@
 #include <unordered_map>
 
 #include "macros.h"
+#include "types.h"
 
 namespace choco {
     const UnmakeMove INVALID_MOVE = {{INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE}, INVALID_PIECE};
@@ -31,7 +32,7 @@ namespace choco {
             return res;
         }
 
-        void addOffsetExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t offset, std::vector<Move>& moveVec) {
+        void addOffsetExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t offset, MoveList& moveVec) {
             if (offset > 0) {
                 while (bitboard) {
                     uint8_t index = countTrailingZeros(bitboard);
@@ -42,7 +43,7 @@ namespace choco {
             }
         }
 
-        void addOffsetExtractedPromotionMoves(uint64_t bitboard, uint8_t offset, std::vector<Move>& moveVec) {
+        void addOffsetExtractedPromotionMoves(uint64_t bitboard, uint8_t offset, MoveList& moveVec) {
             if (offset > 0) {
                 while (bitboard) {
                     uint8_t index = countTrailingZeros(bitboard);
@@ -57,7 +58,7 @@ namespace choco {
             }
         }
 
-        void addOriginExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t originIndex, std::vector<Move>& moveVec) {
+        void addOriginExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t originIndex, MoveList& moveVec) {
             while (bitboard != 0) {
                 uint8_t index = countTrailingZeros(bitboard);
                 bitboard &= ~(1ULL << index);
@@ -584,9 +585,9 @@ namespace choco {
         }
     }
 
-    std::vector<Move> Board::generatePLMoves() const {
-        std::vector<Move> moves;
-        moves.reserve(44); // avg amount of moves available + a lil extra
+    MoveList Board::generatePLMoves() const {
+        MoveList moves;
+        
         addPawnMoves(moves);
         addQueenMoves(moves);
         addKnightMoves(moves);
@@ -597,7 +598,7 @@ namespace choco {
         return moves;
     }
 
-    void Board::addKingMoves(std::vector<Move>& moves) const {
+    void Board::addKingMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][KING], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plKingMoveBB(index, state.activeColor), KING, index, moves);
         });
@@ -621,25 +622,25 @@ namespace choco {
         }
     }
 
-    void Board::addQueenMoves(std::vector<Move>& moves) const {
+    void Board::addQueenMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][QUEEN], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plQueenMoveBB(index, state.activeColor), QUEEN, index, moves);
         });
     }
 
-    void Board::addKnightMoves(std::vector<Move>& moves) const {
+    void Board::addKnightMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][KNIGHT], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plKnightMoveBB(index, state.activeColor), KNIGHT, index, moves);
         });
     }
 
-    void Board::addBishopMoves(std::vector<Move>& moves) const {
+    void Board::addBishopMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][BISHOP], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plBishopMoveBB(index, state.activeColor), BISHOP, index, moves);
         });
     }
 
-    void Board::addRookMoves(std::vector<Move>& moves) const {
+    void Board::addRookMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][ROOK], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plRookMoveBB(index, state.activeColor), ROOK, index, moves);
         });
@@ -648,7 +649,7 @@ namespace choco {
     static constexpr uint64_t PAWN_LEFT_MASK[2]  = { BITBOARD_FILE_H, BITBOARD_FILE_A };
     static constexpr uint64_t PAWN_RIGHT_MASK[2] = { BITBOARD_FILE_A, BITBOARD_FILE_H };
 
-    void Board::addPawnMoves(std::vector<Move>& moves) const {
+    void Board::addPawnMoves(MoveList& moves) const {
         int shiftFactor = state.activeColor == SIDE_WHITE ? 1 : -1;
 
         if (!bitboards[state.activeColor][PAWN]) return;

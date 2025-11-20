@@ -2,6 +2,7 @@
 
 #include "macros.h"
 #include "board.h"
+#include "types.h"
 
 namespace choco {
     void initTT(); // should be called before any engine stuff
@@ -21,6 +22,8 @@ namespace choco {
         Search(const Board& board);
 
         Move getBestMove(uint16_t depth);
+
+        ~Search();
     private:
         Board board;
 
@@ -40,5 +43,7 @@ namespace choco {
 
         float quiesce(Board& board, float alpha, float beta);
         float negamax(Board& board, float alpha, float beta, int depth);
+
+        void orderMoves(MoveList& moves) const;
     };
 } // namespace choco
