@@ -344,11 +344,11 @@ namespace choco {
     }
 
     Board::Board(std::string fen) : Board() {
-        if (fen.starts_with("\"") || fen.starts_with("\'")) {
+        if (fen.front() == '\"' || fen.front() == '\'') {
             fen.erase(0, 1);
         }
 
-        if (fen.ends_with("\"") || fen.ends_with("\'")) {
+        if (fen.back() == '\"' || fen.back() == '\'') {
             fen.pop_back();
         }
 
@@ -433,6 +433,11 @@ namespace choco {
         
         // full moves
         state.moveCount = std::stoi(fenParts[5]);
+    }
+
+    Board::Board(const Board& other) {
+        std::memcpy(bitboards, other.bitboards, sizeof(other.bitboards));
+        state = other.state;
     }
 
     void Board::putPiece(uint8_t side, uint8_t piece, uint8_t index) {

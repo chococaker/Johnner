@@ -57,6 +57,7 @@ namespace choco {
     public:
         Board();
         Board(std::string fen);
+        Board(const Board& other);
 
         uint64_t bitboards[2][6];
         GameState state;

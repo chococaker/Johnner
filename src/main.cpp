@@ -1,6 +1,5 @@
 #include "board.h"
-#include "engine.h"
-
+#include "search.h"
 #include "macros.h"
 
 #include <iostream>
@@ -8,29 +7,31 @@
 #include <limits>
 
 void runEvaluator() {
+    std::cout << "Running eval..." << std::endl;
     choco::initBitboards();
     choco::initTT();
+    std::cout << "Finished init" << std::endl;
 
-    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    choco::Board bb = choco::Board();
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
-    choco::Engine engine(bb);
-    choco::Move move = engine.getBestMove(5);
-    bb.makeMove(move);
+    choco::Search engine(bb);
+    // choco::Move move = engine.getBestMove(5);
+    // bb.makeMove(move);
 
-    std::cout << choco::pieceToPrettyString(move.pieceType)
-              << " "
-              << choco::indexToPrettyString(move.from)
-              << " to " << choco::indexToPrettyString(move.to);
+    // std::cout << choco::pieceToPrettyString(move.pieceType)
+    //           << " "
+    //           << choco::indexToPrettyString(move.from)
+    //           << " to " << choco::indexToPrettyString(move.to);
     
-    if (IS_VALID_PIECE(move.promotionType)) {
-        std::cout << " (" << choco::pieceToPrettyString(move.promotionType) << ")";
-    }
-    std::cout << std::endl;
+    // if (IS_VALID_PIECE(move.promotionType)) {
+    //     std::cout << " (" << choco::pieceToPrettyString(move.promotionType) << ")";
+    // }
+    // std::cout << std::endl;
     
-    std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
+    // std::cout << choco::boardToPrettyString(bb) << "\n" << std::endl;
 
-    std::cout << "Done" << std::endl;
+    // std::cout << "Done" << std::endl;
 }
 
 void runMoveGenTest() {
@@ -42,6 +43,9 @@ void runMoveGenTest() {
 }
 
 int main() {
+    std::cout << "Running main" << std::endl;
     runEvaluator();
+    std::cout << "Exiting main" << std::endl;
+
     return 0;
 }

@@ -1,4 +1,4 @@
-#include "engine.h"
+#include "search.h"
 
 #include <limits>
 #include <algorithm>
@@ -25,33 +25,27 @@ namespace choco {
 #endif
     }
 
+    static uint64_t TRANSPOSITION_HASHES[15][64] = {0};
+
+    void initTT() {
+        std::mt19937_64 engine(69);
+        for (size_t i = 0; i < 15; i++) {
+            for (size_t j = 0; j < 64; j++) {
+                TRANSPOSITION_HASHES[i][j] = engine();
+            }
+        }
+    }
+
     static const float MATE_EVAL = 32000;
 
-    enum TTFlag : uint8_t { TT_EXACT, TT_ALPHA, TT_BETA };
-
-    struct TTEntry {
-        uint64_t key = 0;
-        float eval = 0;
-        int depth = -1;
-        uint8_t flag = TT_EXACT;
-        Move bestMove;
-    };
-
-    constexpr int TT_BITS  = 22;
-    constexpr int TT_SIZE  = 1 << TT_BITS;
-    constexpr uint64_t TT_MASK = TT_SIZE - 1;
-
-    static TTEntry TT[TT_SIZE];
-    static TTEntry QTT[TT_SIZE]; // quiescence
-
-    inline TTEntry& tt_probe(uint64_t key) {
+    inline TTEntry& Search::tt_probe(uint64_t key) {
         return TT[key & TT_MASK];
     }
-    inline TTEntry& qtt_probe(uint64_t key) {
+    inline TTEntry& Search::qtt_probe(uint64_t key) {
         return QTT[key & TT_MASK];
     }
 
-    inline void tt_store(uint64_t key, float eval, int depth, TTFlag flag, const Move& bestMove) {
+    inline void Search::tt_store(uint64_t key, float eval, int depth, TTFlag flag, const Move& bestMove) {
         TTEntry& e = tt_probe(key);
         if (e.key != key || depth >= e.depth) {
             e.key = key;
@@ -62,7 +56,7 @@ namespace choco {
         }
     }
 
-    inline bool tt_lookup(uint64_t key, TTEntry& out, int requiredDepth) {
+    inline bool Search::tt_lookup(uint64_t key, TTEntry& out, int requiredDepth) {
         TTEntry& e = tt_probe(key);
         if (e.key == key && e.depth >= requiredDepth) {
             out = e;
@@ -71,7 +65,7 @@ namespace choco {
         return false;
     }
 
-    inline bool qtt_lookup(uint64_t key, float& out) {
+    inline bool Search::qtt_lookup(uint64_t key, float& out) {
         TTEntry& e = qtt_probe(key);
         if (e.key == key) {
             out = e.eval;
@@ -80,33 +74,12 @@ namespace choco {
         return false;
     }
 
-    inline void qtt_store(uint64_t key, float eval) {
+    inline void Search::qtt_store(uint64_t key, float eval) {
         TTEntry& e = qtt_probe(key);
         e.key = key;
         e.eval = eval;
         e.depth = 0;
         e.flag = TT_EXACT;
-    }
-
-    static Move KTT[100][2]; // killer moves
-
-    inline void ktt_clear(uint64_t depth) {
-
-    }
-
-    inline void ktt_lookup(uint64_t depth, Move& out) {
-
-    }
-
-    static uint64_t TRANSPOSITION_HASHES[15][64] = {0};
-
-    void initTT() {
-        std::mt19937_64 engine(67);
-        for (size_t i = 0; i < 15; i++) {
-            for (size_t j = 0; j < 64; j++) {
-                TRANSPOSITION_HASHES[i][j] = engine();
-            }
-        }
     }
 
     uint64_t getHash(const Board& board) {
@@ -185,7 +158,7 @@ namespace choco {
 
     int nodes = 0;
 
-    float quiesce(Board& board, float alpha, float beta) {
+    float Search::quiesce(Board& board, float alpha, float beta) {
         float stand = evaluate(board);
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
@@ -242,7 +215,7 @@ namespace choco {
 
     int64_t lastAnalysisMs = 0;
 
-    float evaluate(Board& board, float alpha, float beta, int depth) {
+    float Search::negamax(Board& board, float alpha, float beta, int depth) {
         if (depth == 0) return quiesce(board, alpha, beta);
 
         if (getCurrentMs() - lastAnalysisMs > 1000) {
@@ -291,7 +264,7 @@ namespace choco {
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
 
-            float score = -evaluate(board, -beta, -alpha, depth - 1);
+            float score = -negamax(board, -beta, -alpha, depth - 1);
             board.unmakeMove(u);
 
             if (score > best) {
@@ -301,47 +274,43 @@ namespace choco {
             if (score > alpha) alpha = score;
 
             if (score >= beta) {
-                tt_store(key, best, depth, TT_BETA, m);
+                tt_store(key, best, depth, TTFlag::TT_BETA, m);
                 nodes++;
                 return best;
             }
         }
 
-        TTFlag flag = (best <= alpha ? TT_ALPHA : TT_EXACT);
+        TTFlag flag = (best <= alpha ? TTFlag::TT_ALPHA : TTFlag::TT_EXACT);
         tt_store(key, best, depth, flag, bestMove);
 
         return best;
     }
 
 
-    EvalNode::EvalNode(Board& board, float e)
-        : board(board), eval(e) {}
-
-    Engine::Engine(Board& board) {
-        head = new EvalNode(board, 0);
+    Search::Search(const Board& board) : board(board) {
     }
 
-    Move Engine::getBestMove(uint16_t depth) {
+    Move Search::getBestMove(uint16_t depth) {
         Move bestMove(0, 0, 0);
         float bestEval = -std::numeric_limits<float>::infinity();
 
         for (int d = 1; d <= depth; d++) { // "iterative deepening"
             std::cout << "Searching " << std::to_string(d) << "-ply:" << std::endl;
-            std::vector<Move> moves = head->board.generatePLMoves();
+            std::vector<Move> moves = board.generatePLMoves();
             std::cout << std::to_string(moves.size()) << std::endl;
 
             for (const Move& move : moves) {
-                UnmakeMove unmake = head->board.makeMove(move);
+                UnmakeMove unmake = board.makeMove(move);
                 if (!unmake.isValid()) continue;
                 std::cout << "  > Attempting " << indexToPrettyString(move.from)
                         << " to " << indexToPrettyString(move.to) << " - ";
 
-                float eval = -evaluate(head->board,
+                float eval = -negamax(board,
                                     -std::numeric_limits<float>::infinity(),
                                     std::numeric_limits<float>::infinity(),
                                     d);
                 std::cout << std::to_string(eval) << std::endl;
-                head->board.unmakeMove(unmake);
+                board.unmakeMove(unmake);
 
                 if (eval > bestEval) {
                     bestEval = eval;
@@ -352,5 +321,4 @@ namespace choco {
 
         return bestMove;
     }
-
 }
