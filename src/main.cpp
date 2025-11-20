@@ -5,6 +5,7 @@
 #include <iostream>
 #include <random>
 #include <limits>
+#include <stdexcept>
 
 void runEvaluator() {
     std::cout << "Running eval..." << std::endl;
@@ -44,7 +45,10 @@ void runMoveGenTest() {
 
 int main() {
     std::cout << "Running main" << std::endl;
-    runEvaluator();
+    choco::initBitboards();
+    choco::initTT();
+    choco::Board bb = choco::Board("rnb1k1nr/p1pp1ppp/1p6/2P5/2P1p3/5N2/PB1PPPPP/1N2KB1R w KAkq - 0 1");
+    choco::Search engine(bb);
     std::cout << "Exiting main" << std::endl;
 
     return 0;
