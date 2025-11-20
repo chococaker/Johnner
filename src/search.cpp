@@ -288,6 +288,8 @@ namespace choco {
 
 
     Search::Search(const Board& board) : board(board) {
+        TT = new TTEntry[TT_SIZE];
+        QTT = new TTEntry[TT_SIZE];
     }
 
     Move Search::getBestMove(uint16_t depth) {

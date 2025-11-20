@@ -28,8 +28,8 @@ namespace choco {
         static constexpr size_t TT_SIZE  = 1 << TT_BITS;
         static constexpr uint64_t TT_MASK = TT_SIZE - 1;
 
-        TTEntry TT[TT_SIZE];
-        TTEntry QTT[TT_SIZE];
+        TTEntry *TT;
+        TTEntry *QTT;
 
         inline TTEntry& tt_probe(uint64_t key);
         inline TTEntry& qtt_probe(uint64_t key);
