@@ -23,5 +23,6 @@ int main(int argc, char* argv[]) {
     double elapsed_seconds = elapsed.count();
     std::cout << "Elapsed time: " << elapsed_seconds << "s" << std::endl;
     std::cout << "Avg. nps: " << std::to_string(nodesSearched / elapsed_seconds) << std::endl;
+    std::cout << "Avg. spn: " << std::to_string(elapsed_seconds / nodesSearched) << std::endl;
 #endif
 }

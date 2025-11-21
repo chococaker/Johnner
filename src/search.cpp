@@ -212,7 +212,6 @@ namespace choco {
             nodes = 0;
         }
 
-
         uint64_t key = getHash(board);
 
         TTEntry entry;
@@ -235,8 +234,6 @@ namespace choco {
         for (const Move& m : moves) {
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
-
-            // movesSoFar++;
 
             float score;
             
@@ -276,7 +273,7 @@ namespace choco {
         Move bestMove(0, 0, 0);
         float bestEval = -std::numeric_limits<float>::infinity();
 
-        for (int d = 1; d <= depth; d++) { // "iterative deepening"
+        for (int d = 2; d <= depth; d++) { // "iterative deepening"
             std::cout << "Searching " << std::to_string(d) << "-ply (";
             MoveList moves = board.generatePLMoves();
             std::cout << std::to_string(moves.size()) << " PL moves)" << std::endl;
@@ -299,6 +296,13 @@ namespace choco {
                     bestMove = move;
                 }
             }
+
+            std::cout << std::to_string(d) << "-ply best move: "
+                      << choco::pieceToPrettyString(bestMove.pieceType)
+                      << " "
+                      << choco::indexToPrettyString(bestMove.from)
+                      << " to " << choco::indexToPrettyString(bestMove.to)
+                      << std::endl;
         }
 
         return bestMove;
@@ -314,10 +318,12 @@ namespace choco {
 
         // MOVE ORDERING
         // TTPV move
+        bool lookupFound = false;
         if (tt_lookup(boardHash, entry, 0)) {
             for (uint8_t i = 0; i < moves.size(); i++) {
                 if (entry.bestMove == moves[i]) {
                     moves.swap(0, i);
+                    lookupFound = true;
                     break;
                 }
             }
@@ -325,19 +331,17 @@ namespace choco {
 
         // insertion sort
         // MVV/LVA
-        if (moves.size() > 2) {
-            for (int i = 2; i < moves.size(); ++i) {
-                uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], moves[i].to);
-                float key = exchangeVal(board, moves[i]);
-                const Move& keyMove = moves[i];
-                float j = i - 1;
+        for (int i = (lookupFound ? 0 : 1); i < moves.size(); i++) {
+            const Move& keyMove = moves[i];
+            uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], keyMove.to);
+            float key = exchangeVal(board, keyMove);
+            float j = i - 1;
 
-                while (j >= 0 && exchangeVal(board, moves[j]) > key) {
-                    moves[j + 1] = moves[j];
-                    j = j - 1;
-                }
-                moves[j + 1] = keyMove;
+            while (j >= 0 && exchangeVal(board, moves[j]) > key) {
+                moves[j + 1] = moves[j];
+                j = j - 1;
             }
+            moves[j + 1] = keyMove;
         }
     }
 
