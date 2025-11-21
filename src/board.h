@@ -65,8 +65,6 @@ namespace choco {
         void addRookMoves(MoveList& moves) const;
         void addPawnMoves(MoveList& moves) const;
 
-        uint8_t countPieces(uint8_t side, uint8_t piece) const;
-
         uint64_t plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const;
 
         uint64_t plKingMoveBB(uint8_t square, uint8_t color) const;
@@ -79,8 +77,8 @@ namespace choco {
         uint64_t getAttacks(uint8_t color) const; // get attacks that a color is doing
 
     private:
-        void putPiece(uint8_t side, uint8_t piece, uint8_t index);
-        void removePiece(uint8_t side, uint8_t piece, uint8_t index);
+        inline void putPiece(uint8_t side, uint8_t piece, uint8_t index);
+        inline void removePiece(uint8_t side, uint8_t piece, uint8_t index);
     };
 
     std::string indexToPrettyString(uint8_t index);

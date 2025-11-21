@@ -321,12 +321,12 @@ namespace choco {
         return IS_VALID_PIECE(move.pieceType);
     }
 
-    void GameState::enableCastling(uint8_t color, uint8_t sidePiece) {
+    inline void GameState::enableCastling(uint8_t color, uint8_t sidePiece) {
         uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
         castling |= mask;
     }
 
-    void GameState::disableCastling(uint8_t color, uint8_t sidePiece) {
+    inline void GameState::disableCastling(uint8_t color, uint8_t sidePiece) {
         uint8_t mask = 1 << ((sidePiece - KING) + color * 2);
         castling &= ~mask;
     }
@@ -430,17 +430,16 @@ namespace choco {
         state = other.state;
     }
 
-    void Board::putPiece(uint8_t side, uint8_t piece, uint8_t index) {
+    inline void Board::putPiece(uint8_t side, uint8_t piece, uint8_t index) {
         bitboards[side][piece] |= (1ULL << index);
     }
-    void Board::removePiece(uint8_t side, uint8_t piece, uint8_t index) {
+    inline void Board::removePiece(uint8_t side, uint8_t piece, uint8_t index) {
         bitboards[side][piece] &= ~getMask(index);
     }
     UnmakeMove Board::makeMove(const Move& move) {
         UnmakeMove unmakeMove = { move, INVALID_PIECE, state };
 
-        removePiece(state.activeColor, move.pieceType, move.from);
-        putPiece(state.activeColor, move.pieceType, move.to);
+        bitboards[state.activeColor][move.pieceType] ^= getMask(move.from) | getMask(move.to);
 
         state.halfMoveClock++;
 
@@ -673,23 +672,6 @@ namespace choco {
         addOffsetExtractedPromotionMoves(promotedPawns, 8 * shiftFactor, moves);
     }
 
-    uint8_t Board::countPieces(uint8_t side, uint8_t piece) const {
-        uint64_t n = bitboards[side][piece];
-#if defined(__GNUC__) || defined(__clang__)
-        return __builtin_popcountll(n);
-#elif defined(_MSC_VER)
-        #include <intrin.h>
-        return __popcount64(n);
-#else
-        uint8_t count = 0;
-        while (n > 0) {
-            n &= (n - 1); 
-            count++;
-        }
-        return count;
-#endif
-    }
-
     uint64_t Board::getAttacks(uint8_t color) const {
         uint64_t attacks = 0;
         iterateIndices(bitboards[color][KING], [this, color, &attacks](uint8_t index) -> void {
@@ -786,8 +768,8 @@ namespace choco {
         // captures
         uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
         if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
-        uint64_t captureLPawn = shiftLeftBasedOnColor(color, pawnMask & ~~PAWN_RIGHT_MASK[color], 7) & oppSquares;
-        uint64_t captureRPawn = shiftLeftBasedOnColor(color, pawnMask & ~~PAWN_RIGHT_MASK[color], 9) & oppSquares;
+        uint64_t captureLPawn = shiftLeftBasedOnColor(color, pawnMask & PAWN_RIGHT_MASK[color], 7) & oppSquares;
+        uint64_t captureRPawn = shiftLeftBasedOnColor(color, pawnMask & PAWN_RIGHT_MASK[color], 9) & oppSquares;
         bb |= captureLPawn;
         bb |= captureRPawn;
 

@@ -82,8 +82,8 @@ namespace choco {
         // material
         for (int i = 0; i < 6; i++) {
             if (i != 0) {
-                eval += STATIC_PIECE_VALUES[i] * board.countPieces(activeColor, i);
-                eval -= STATIC_PIECE_VALUES[i] * board.countPieces(opp, i);
+                eval += STATIC_PIECE_VALUES[i] * countOnes(board.bitboards[activeColor][i]);
+                eval -= STATIC_PIECE_VALUES[i] * countOnes(board.bitboards[opp][i]);
             }
 
             iterateIndices(board.bitboards[activeColor][i],

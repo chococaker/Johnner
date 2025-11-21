@@ -77,10 +77,10 @@ namespace choco {
         return nodesSearched;
     }
 
-    void perft(Board& board, int depth, bool initBB, bool print) {
+    uint32_t perft(Board& board, int depth, bool initBB, bool print) {
         if (depth == 0) {
             std::cout << "1" << std::endl;
-            return;
+            return 1;
         }
 
         uint32_t nodesSearched = 0;
@@ -112,5 +112,7 @@ namespace choco {
         if (print) {
             std::cout << "\n" << std::to_string(nodesSearched) << std::endl;
         }
+
+        return nodesSearched;
     }
 } // namespace choco
