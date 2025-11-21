@@ -24,7 +24,7 @@ namespace choco {
             std::string token;
             std::vector<std::string> res;
             while ((pos_end = s.find(delimiter, pos_start)) != std::string::npos) {
-                token = s.substr (pos_start, pos_end - pos_start);
+                token = s.substr(pos_start, pos_end - pos_start);
                 pos_start = pos_end + delim_len;
                 res.push_back(token);
             }
@@ -48,18 +48,16 @@ namespace choco {
                 while (bitboard) {
                     uint8_t index = countTrailingZeros(bitboard);
                     bitboard &= ~(1ULL << index);
-                    // i know this slows down the engine, but it's for style points.
-                    // promoting to queen when rook/bishop mate is available is just a terrible thing to do
-                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, ROOK });
-                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, BISHOP });
-                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, QUEEN });
-                    moveVec.push_back({ PAWN, (uint8_t) (index - offset), index, KNIGHT });
+                    moveVec.push_back({ PAWN, (uint8_t)(index - offset), index, QUEEN });
+                    moveVec.push_back({ PAWN, (uint8_t)(index - offset), index, KNIGHT });
+                    moveVec.push_back({ PAWN, (uint8_t)(index - offset), index, ROOK });
+                    moveVec.push_back({ PAWN, (uint8_t)(index - offset), index, BISHOP });
                 }
             }
         }
 
         void addOriginExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t originIndex, MoveList& moveVec) {
-            while (bitboard != 0) {
+            while (bitboard) {
                 uint8_t index = countTrailingZeros(bitboard);
                 bitboard &= ~(1ULL << index);
                 Move move = { piece, originIndex, index, INVALID_PIECE };
@@ -68,7 +66,7 @@ namespace choco {
         }
 
         // Carry-Ripple Trick
-        void enumerateSubsets(uint64_t bitboard, const std::function<void(uint64_t)>& func) {
+        void enumerateSubsets(uint64_t bitboard, auto&& func) {
             uint64_t sub = 0;
             do {
                 func(sub);
@@ -305,7 +303,6 @@ namespace choco {
         return initMagics<12>(seed, ROOK_TBL, ROOK_ATTACKS, attackGenerator, maskGenerator);
     }
 
-    // returns number of attempts required to generate magics
     void initBitboards() {
         uint64_t rookIterations = initRookBoards(ROOK_SEED);
         uint64_t bishopIterations = initBishopBoards(BISHOP_SEED);
@@ -345,14 +342,6 @@ namespace choco {
     }
 
     Board::Board(std::string fen) : Board() {
-        if (fen.front() == '\"' || fen.front() == '\'') {
-            fen.erase(0, 1);
-        }
-
-        if (fen.back() == '\"' || fen.back() == '\'') {
-            fen.pop_back();
-        }
-
         std::vector<std::string> fenParts = split(fen, " ");
         
         // piece positions
@@ -437,7 +426,7 @@ namespace choco {
     }
 
     Board::Board(const Board& other) {
-        std::memcpy(bitboards, other.bitboards, sizeof(other.bitboards));
+        std::memcpy(bitboards, other.bitboards, sizeof(bitboards));
         state = other.state;
     }
 

@@ -41,9 +41,9 @@ namespace choco {
         inline bool qtt_lookup(uint64_t key, float& out);
         inline void qtt_store(uint64_t key, float eval);
 
-        float quiesce(Board& board, float alpha, float beta);
+        inline float quiesce(Board& board, float alpha, float beta);
         float negamax(Board& board, float alpha, float beta, int depth);
 
-        void orderMoves(MoveList& moves) const;
+        inline void orderMoves(Board& board, uint64_t boardHash, MoveList& moves);
     };
 } // namespace choco

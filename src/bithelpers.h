@@ -87,7 +87,7 @@ namespace choco {
         return getMask(getIndex(rank, file));
     }
 
-    inline void iterateIndices(uint64_t bitboard, const std::function<void(uint8_t)>& func) {
+    inline void iterateIndices(uint64_t bitboard, auto&& func) {
         while (bitboard != 0) {
             uint8_t index = countTrailingZeros(bitboard);
             bitboard = bitboard & (bitboard - 1);

@@ -1,5 +1,7 @@
 #include "types.h"
 
+#include <utility>
+
 namespace choco {
     MoveList::MoveList() : i(0) { }
 
@@ -15,20 +17,20 @@ namespace choco {
     }
 
     Move MoveList::pop() {
-        Move& m = moves[i];
-        i--;
+        Move& m = moves[i--];
         return m;
     }
 
+    void MoveList::push_back(Move&& move) {
+        moves[i++] = std::move(move);
+    }
+
     void MoveList::push_back(const Move& move) {
-        moves[i] = move;
-        i++;
+        moves[i++] = move;
     }
 
     void MoveList::swap(uint8_t n1, uint8_t n2) {
-        Move temp = (*this)[n2];
-        (*this)[n2] = (*this)[n1];
-        (*this)[n1] = temp;
+        std::swap(moves[n1], moves[n2]);
     }
 
     MoveList::Iterator MoveList::begin() {

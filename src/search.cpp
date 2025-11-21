@@ -158,7 +158,7 @@ namespace choco {
 
     int nodes = 0;
 
-    float Search::quiesce(Board& board, float alpha, float beta) {
+    inline float Search::quiesce(Board& board, float alpha, float beta) {
         float stand = evaluate(board);
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
@@ -171,18 +171,6 @@ namespace choco {
 
         MoveList moves = board.generatePLMoves();
         uint64_t oppPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
-
-        // std::sort(moves.begin(), moves.end(), [&board](const Move& a, const Move& b) -> bool {
-        //     uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
-        //     if (capturedPieceA == INVALID_PIECE) return false;
-        //     uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
-        //     if (capturedPieceB == INVALID_PIECE) return false;
-
-        //     float aValuation = STATIC_PIECE_VALUES[a.pieceType];
-        //     float bValuation = STATIC_PIECE_VALUES[b.pieceType];
-
-        //     return aValuation > bValuation;
-        // });
 
         for (const Move& m : moves) {
             uint64_t toMask = getMask(m.to);
@@ -216,8 +204,7 @@ namespace choco {
     int64_t lastAnalysisMs = 0;
 
     float Search::negamax(Board& board, float alpha, float beta, int depth) {
-        if (depth == 0) return quiesce(board, alpha, beta);
-        // if (depth == 0) return evaluate(board);
+        if (depth <= 0) return quiesce(board, alpha, beta);
 
         if (getCurrentMs() - lastAnalysisMs > 1000) {
             lastAnalysisMs = getCurrentMs();
@@ -241,33 +228,23 @@ namespace choco {
         MoveList moves = board.generatePLMoves();
 
         // MOVE ORDERING
-        // TT move
-        if (tt_lookup(key, entry, 0)) {
-            for (uint8_t i = 0; i < moves.size(); i++) {
-                if (moves[i] == entry.bestMove) {
-                    moves.swap(0, i);
-                    break;
-                }
-            }
-        }
-        // MVV-LVA
-        // if (moves.size() > 2) {
-        //     std::sort(moves.begin() + 1, moves.end(), [&board](const Move& a, const Move& b) -> bool {
-        //         uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], a.to);
-        //         uint8_t capturedPieceB = getPieceOnSquare(board.bitboards[board.state.activeColor], b.to);
+        orderMoves(board, key, moves);
 
-        //         float aValuation = (capturedPieceA == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[a.pieceType];
-        //         float bValuation = (capturedPieceB == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[b.pieceType];
-
-        //         return aValuation > bValuation;
-        //     });
-        // }
+        uint8_t movesSoFar = 0;
 
         for (const Move& m : moves) {
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
 
-            float score = -negamax(board, -beta, -alpha, depth - 1);
+            // movesSoFar++;
+
+            float score;
+            
+            if (movesSoFar <6) {
+                score = -negamax(board, -beta, -alpha, depth - 1);
+            } else {
+                score = -negamax(board, -beta, -alpha, depth - 2);
+            }
             board.unmakeMove(u);
 
             if (score > best) {
@@ -327,12 +304,45 @@ namespace choco {
         return bestMove;
     }
 
-    void Search::orderMoves(MoveList& moves) const {
+    inline float exchangeVal(Board& board, const Move& move) {
+        uint8_t capturedPiece = getPieceOnSquare(board.bitboards[board.state.activeColor], move.to);
+        return (capturedPiece == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[move.pieceType];
+    }
 
+    inline void Search::orderMoves(Board& board, uint64_t boardHash, MoveList& moves) {
+        TTEntry entry;
+
+        // MOVE ORDERING
+        // TTPV move
+        if (tt_lookup(boardHash, entry, 0)) {
+            for (uint8_t i = 0; i < moves.size(); i++) {
+                if (entry.bestMove == moves[i]) {
+                    moves.swap(0, i);
+                    break;
+                }
+            }
+        }
+
+        // insertion sort
+        // MVV/LVA
+        if (moves.size() > 2) {
+            for (int i = 2; i < moves.size(); ++i) {
+                uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], moves[i].to);
+                float key = exchangeVal(board, moves[i]);
+                const Move& keyMove = moves[i];
+                float j = i - 1;
+
+                while (j >= 0 && exchangeVal(board, moves[j]) > key) {
+                    moves[j + 1] = moves[j];
+                    j = j - 1;
+                }
+                moves[j + 1] = keyMove;
+            }
+        }
     }
 
     Search::~Search() {
-        delete TT;
-        delete QTT;
+        delete[] TT;
+        delete[] QTT;
     }
 }

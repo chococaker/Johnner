@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace choco {
     class Move {
@@ -32,6 +33,7 @@ namespace choco {
         uint8_t size() const;
 
         Move pop();
+        void push_back(Move&& move);
         void push_back(const Move& move);
         void swap(uint8_t n1, uint8_t n2);
 
@@ -94,7 +96,7 @@ namespace choco {
         Iterator begin();
         Iterator end();
     private:
-        static constexpr size_t MAX_MOVE_COUNT = 218;
+        static constexpr size_t MAX_MOVE_COUNT = 100;
         Move moves[MAX_MOVE_COUNT];
         uint8_t i;
     };
