@@ -228,12 +228,16 @@ namespace choco {
         MoveList moves = board.generatePLMoves();
 
         orderMoves(board, key, moves);
+        
+        bool invalidMove = true;
 
         for (const Move& m : moves) {
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
 
             float score;
+
+            invalidMove = false;
             
             score = -negamax(board, -beta, -alpha, depth - 1);
 
@@ -251,6 +255,16 @@ namespace choco {
                 return best;
             }
         }
+
+        if (invalidMove) {
+            if (board.bitboards[board.state.activeColor][KING]
+                & board.getAttacks(OPPOSITE_SIDE(board.state.activeColor))) {
+                    return -MATE_EVAL;
+                }
+            else {
+                return 0;
+            }
+        } // stalemate
 
         TTFlag flag = (best <= alpha ? TTFlag::TT_ALPHA : TTFlag::TT_EXACT);
         tt_store(key, best, depth, flag, bestMove);
