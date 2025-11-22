@@ -341,6 +341,8 @@ namespace choco {
 
     Board::Board() {
         memset(bitboards, 0, sizeof(bitboards));
+        occupiedSquares[SIDE_WHITE] = 0;
+        occupiedSquares[SIDE_BLACK] = 0;
         state = { SIDE_WHITE, 0, 0, INVALID_SQUARE, 0 };
     }
 

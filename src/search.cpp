@@ -28,7 +28,7 @@ namespace choco {
     static uint64_t TRANSPOSITION_HASHES[15][64] = {0};
 
     void initTT() {
-        std::mt19937_64 engine(69);
+        std::mt19937_64 engine(690);
         for (size_t i = 0; i < 15; i++) {
             for (size_t j = 0; j < 64; j++) {
                 TRANSPOSITION_HASHES[i][j] = engine();
@@ -271,7 +271,7 @@ namespace choco {
     }
 
     Move Search::getBestMove(uint16_t depth) {
-        Move bestMove(0, 0, 0);
+        Move bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
         float bestEval = -std::numeric_limits<float>::infinity();
 
         for (int d = 2; d <= depth; d++) { // "iterative deepening"
