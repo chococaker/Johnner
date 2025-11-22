@@ -36,7 +36,8 @@ namespace choco {
         }
     }
 
-    static const float MATE_EVAL = 32000;
+    static constexpr float MATE_EVAL = 32000;
+    static constexpr float MATE_EVAL_THRESHOLD = 30000;
 
     inline TTEntry& Search::tt_probe(uint64_t key) {
         return TT[key & TT_MASK];
@@ -170,7 +171,7 @@ namespace choco {
             return cached;
 
         MoveList moves = board.generatePLMoves();
-        uint64_t oppPieces = getOccupiedBitboard(board.bitboards[OPPOSITE_SIDE(board.state.activeColor)]);
+        uint64_t oppPieces = board.occupiedSquares[OPPOSITE_SIDE(board.state.activeColor)];
 
         for (const Move& m : moves) {
             uint64_t toMask = getMask(m.to);
@@ -226,10 +227,7 @@ namespace choco {
 
         MoveList moves = board.generatePLMoves();
 
-        // MOVE ORDERING
         orderMoves(board, key, moves);
-
-        uint8_t movesSoFar = 0;
 
         for (const Move& m : moves) {
             UnmakeMove u = board.makeMove(m);
@@ -237,11 +235,8 @@ namespace choco {
 
             float score;
             
-            if (movesSoFar <6) {
-                score = -negamax(board, -beta, -alpha, depth - 1);
-            } else {
-                score = -negamax(board, -beta, -alpha, depth - 2);
-            }
+            score = -negamax(board, -beta, -alpha, depth - 1);
+
             board.unmakeMove(u);
 
             if (score > best) {
@@ -259,6 +254,12 @@ namespace choco {
 
         TTFlag flag = (best <= alpha ? TTFlag::TT_ALPHA : TTFlag::TT_EXACT);
         tt_store(key, best, depth, flag, bestMove);
+
+        if (best > MATE_EVAL_THRESHOLD) {
+            best--;
+        } else if (best < -MATE_EVAL_THRESHOLD) {
+            best++;
+        }
 
         return best;
     }

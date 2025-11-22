@@ -95,21 +95,6 @@ namespace choco {
         }
     }
 
-    constexpr inline uint64_t getOccupiedBitboard(const uint64_t bitboards[6]) {
-        return bitboards[KING]
-             | bitboards[QUEEN]
-             | bitboards[BISHOP] 
-             | bitboards[KNIGHT] 
-             | bitboards[ROOK] 
-             | bitboards[PAWN];
-    }
-    constexpr inline uint64_t getOccupiedBitboard(const uint64_t bitboards[2][6]) {
-        return getOccupiedBitboard(bitboards[SIDE_WHITE]) | getOccupiedBitboard(bitboards[SIDE_BLACK]);
-    }
-    constexpr inline uint64_t getEmptyBitboard(const uint64_t bitboards[2][6]) {
-        return ~getOccupiedBitboard(bitboards);
-    }
-
     constexpr inline uint8_t getPieceOnSquare(const uint64_t bitboards[6], uint8_t square) {
         uint64_t mask = getMask(square);
         for (uint8_t i = 0; i < 6; i++) {

@@ -44,6 +44,7 @@ namespace choco {
         Board(const Board& other);
 
         uint64_t bitboards[2][6];
+        uint64_t occupiedSquares[2];
         GameState state;
 
         /**

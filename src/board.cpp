@@ -14,6 +14,9 @@
 #include "macros.h"
 #include "types.h"
 
+
+#define ALL_OCCUPIED_SQUARES (occupiedSquares[SIDE_WHITE] | occupiedSquares[SIDE_BLACK])
+
 namespace choco {
     const UnmakeMove INVALID_MOVE = {{INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE}, INVALID_PIECE};
 
@@ -427,26 +430,34 @@ namespace choco {
 
     Board::Board(const Board& other) {
         std::memcpy(bitboards, other.bitboards, sizeof(bitboards));
+        occupiedSquares[SIDE_WHITE] = other.occupiedSquares[SIDE_WHITE];
+        occupiedSquares[SIDE_BLACK] = other.occupiedSquares[SIDE_BLACK];
         state = other.state;
     }
 
     inline void Board::putPiece(uint8_t side, uint8_t piece, uint8_t index) {
-        bitboards[side][piece] |= (1ULL << index);
+        uint64_t mask = getMask(index);
+        bitboards[side][piece] |= mask;
+        occupiedSquares[side] |= mask;
     }
     inline void Board::removePiece(uint8_t side, uint8_t piece, uint8_t index) {
+        uint64_t mask = ~getMask(index);
         bitboards[side][piece] &= ~getMask(index);
+        occupiedSquares[side] &= mask;
     }
     UnmakeMove Board::makeMove(const Move& move) {
         UnmakeMove unmakeMove = { move, INVALID_PIECE, state };
 
-        bitboards[state.activeColor][move.pieceType] ^= getMask(move.from) | getMask(move.to);
+        uint64_t movementMask = getMask(move.from) | getMask(move.to);
+        bitboards[state.activeColor][move.pieceType] ^= movementMask;
+        occupiedSquares[state.activeColor] ^= movementMask;
 
         state.halfMoveClock++;
 
         // capture
         for (uint8_t i = 0; i < 6; i++) {
             uint64_t initialVal = bitboards[OPPOSITE_SIDE(state.activeColor)][i];
-            bitboards[OPPOSITE_SIDE(state.activeColor)][i] &= ~getMask(move.to);
+            removePiece(OPPOSITE_SIDE(state.activeColor), i, move.to);
             if (initialVal != bitboards[OPPOSITE_SIDE(state.activeColor)][i]) {
                 state.halfMoveClock = 0;
                 unmakeMove.pieceTaken = i;
@@ -591,7 +602,7 @@ namespace choco {
             addOriginExtractedMoves(plKingMoveBB(index, state.activeColor), KING, index, moves);
         });
 
-        uint64_t occupied = getOccupiedBitboard(bitboards);
+        uint64_t occupied = ALL_OCCUPIED_SQUARES;
 
         // castling spaghetti
         if (state.canCastle(state.activeColor, KING)) {
@@ -645,7 +656,7 @@ namespace choco {
         uint8_t color = state.activeColor;
 
         // pushes
-        uint64_t emptySquares = getEmptyBitboard(bitboards);
+        uint64_t emptySquares = ~(ALL_OCCUPIED_SQUARES);
         uint64_t promoterMask = (color == SIDE_WHITE) ? BITBOARD_RANK_7 : BITBOARD_RANK_2;
         uint64_t pushedPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~promoterMask, 8) & emptySquares;
         addOffsetExtractedMoves(pushedPawns, PAWN, 8 * shiftFactor, moves);
@@ -658,7 +669,7 @@ namespace choco {
         uint64_t promotedMask = (color == SIDE_WHITE) ? BITBOARD_RANK_8 : BITBOARD_RANK_1;
 
         // captures
-        uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
+        uint64_t oppSquares = occupiedSquares[OPPOSITE_SIDE(color)];
         if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
         uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_RIGHT_MASK[color], 7) & oppSquares;
         uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_LEFT_MASK[color], 9) & oppSquares;
@@ -713,12 +724,12 @@ namespace choco {
     }
 
     uint64_t Board::plKingMoveBB(uint8_t square, uint8_t color) const {
-        return KING_ATTACKS[square] & (~getOccupiedBitboard(bitboards[color]));
+        return KING_ATTACKS[square] & (~occupiedSquares[color]);
     }
 
     uint64_t Board::plQueenMoveBB(uint8_t square, uint8_t color) const {
-        uint64_t occupiedBitboard = getOccupiedBitboard(bitboards);
-        uint64_t ownOccupiedBitboard = getOccupiedBitboard(bitboards[color]);
+        uint64_t occupiedBitboard = ALL_OCCUPIED_SQUARES;
+        uint64_t ownOccupiedBitboard = occupiedSquares[color];
 
         const Magic& rookVal = ROOK_TBL[square];
         uint64_t rookRelevantBitboard = occupiedBitboard & rookVal.mask;
@@ -735,20 +746,20 @@ namespace choco {
 
     uint64_t Board::plBishopMoveBB(uint8_t square, uint8_t color) const {
         const Magic& val = BISHOP_TBL[square];
-        uint64_t relevantBitboard = getOccupiedBitboard(bitboards) & val.mask;
+        uint64_t relevantBitboard = (ALL_OCCUPIED_SQUARES) & val.mask;
         uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 9)) & ((1ULL << 9) - 1);
-        return BISHOP_ATTACKS[square][hash] & (~getOccupiedBitboard(bitboards[color]));
+        return BISHOP_ATTACKS[square][hash] & (~occupiedSquares[color]);
     }
 
     uint64_t Board::plKnightMoveBB(uint8_t square, uint8_t color) const {
-        return KNIGHT_ATTACKS[square] & (~getOccupiedBitboard(bitboards[color]));
+        return KNIGHT_ATTACKS[square] & (~occupiedSquares[color]);
     }
     
     uint64_t Board::plRookMoveBB(uint8_t square, uint8_t color) const {
         const Magic& val = ROOK_TBL[square];
-        uint64_t relevantBitboard = getOccupiedBitboard(bitboards) & val.mask;
+        uint64_t relevantBitboard = (ALL_OCCUPIED_SQUARES) & val.mask;
         uint16_t hash = ((relevantBitboard * val.magic) >> (64 - 12)) & ((1ULL << 12) - 1);
-        return ROOK_ATTACKS[square][hash] & (~getOccupiedBitboard(bitboards[color]));
+        return ROOK_ATTACKS[square][hash] & (~occupiedSquares[color]);
     }
 
     uint64_t Board::plPawnMoveBB(uint8_t square, uint8_t color) const {
@@ -756,7 +767,7 @@ namespace choco {
         uint64_t pawnMask = getMask(square);
 
         // pushes
-        uint64_t emptySquares = getEmptyBitboard(bitboards);
+        uint64_t emptySquares = ~(ALL_OCCUPIED_SQUARES);
         uint64_t pushedPawn = shiftLeftBasedOnColor(color, pawnMask, 8) & emptySquares;
         bb |= pushedPawn;
 
@@ -766,7 +777,7 @@ namespace choco {
         bb |= doublePushedPawn;
 
         // captures
-        uint64_t oppSquares = getOccupiedBitboard(bitboards[OPPOSITE_SIDE(color)]);
+        uint64_t oppSquares = occupiedSquares[OPPOSITE_SIDE(color)];
         if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
         uint64_t captureLPawn = shiftLeftBasedOnColor(color, pawnMask & PAWN_RIGHT_MASK[color], 7) & oppSquares;
         uint64_t captureRPawn = shiftLeftBasedOnColor(color, pawnMask & PAWN_RIGHT_MASK[color], 9) & oppSquares;
