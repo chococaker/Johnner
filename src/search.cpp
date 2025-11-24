@@ -231,7 +231,11 @@ namespace choco {
         
         bool invalidMove = true;
 
+        int movesLooked = 0;
+        const int lmrCutoff = depth == moves.size() * (2.f/3.f);
+
         for (const Move& m : moves) {
+            // movesLooked++;
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
 
@@ -239,7 +243,7 @@ namespace choco {
 
             invalidMove = false;
             
-            score = -negamax(board, -beta, -alpha, depth - 1);
+            score = -negamax(board, -beta, -alpha, depth - 1 - 1 * (movesLooked >= lmrCutoff && depth > 3));
 
             board.unmakeMove(u);
 
@@ -286,7 +290,7 @@ namespace choco {
 
     Move Search::getBestMove(uint16_t depth) {
         Move bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
-        float bestEval = -std::numeric_limits<float>::infinity();
+        float bestEval = -9999999999999;
 
         for (int d = 2; d <= depth; d++) { // "iterative deepening"
             std::cout << "Searching " << std::to_string(d) << "-ply (";
@@ -300,8 +304,8 @@ namespace choco {
                         << " to " << indexToPrettyString(move.to) << " - ";
 
                 float eval = -negamax(board,
-                                    -std::numeric_limits<float>::infinity(),
-                                    std::numeric_limits<float>::infinity(),
+                                    -9999999999999,
+                                    9999999999999,
                                     d);
                 std::cout << std::to_string(eval) << std::endl;
                 board.unmakeMove(unmake);
@@ -329,10 +333,9 @@ namespace choco {
     }
 
     inline void Search::orderMoves(Board& board, uint64_t boardHash, MoveList& moves) {
-        TTEntry entry;
-
         // MOVE ORDERING
         // TTPV move
+        TTEntry entry;
         bool lookupFound = false;
         if (tt_lookup(boardHash, entry, 0)) {
             for (uint8_t i = 0; i < moves.size(); i++) {
@@ -346,7 +349,7 @@ namespace choco {
 
         // insertion sort
         // MVV/LVA
-        for (int i = (lookupFound ? 0 : 1); i < moves.size(); i++) {
+        for (int i = (lookupFound ? 0 : 1); i < moves.size(); ++i) {
             const Move& keyMove = moves[i];
             uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], keyMove.to);
             float key = exchangeVal(board, keyMove);

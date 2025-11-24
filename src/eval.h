@@ -143,11 +143,12 @@ namespace choco {
                                                  + STATIC_PIECE_VALUES[KNIGHT] * 4
                                                  + STATIC_PIECE_VALUES[ROOK] * 4
                                                  + STATIC_PIECE_VALUES[PAWN] * 16;
-        
-        float mgFactor = materialSum / STARTING_MATERIAL;
-        float egFactor = 1 - mgFactor;
 
-        return MG_PIECE_SQUARE_TABLES[piece][index] * mgFactor + EG_PIECE_SQUARE_TABLES[piece][index] * egFactor;
+        if (materialSum > 40) {
+            return MG_PIECE_SQUARE_TABLES[piece][index];
+        } else {
+            return EG_PIECE_SQUARE_TABLES[piece][index];
+        }
     }
 
     float evaluate(const Board& board) {

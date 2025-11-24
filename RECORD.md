@@ -17,3 +17,7 @@ Johnner strikes in the center again, and Ambiorix's lack of PSTs is its downfall
 **[11/22/2025]** [Lichess as Firefly008](https://lichess.org/ZJOR3KcM) (`1-0`)
 
 Ambiorix still doesn't have PSTs, so it loses more quickly. It gets mated in the middle of the board, swarmed by pieces in a measly 18 moves.
+
+**[11/23/2025]** [Lichess as Firefly008](https://lichess.org/mWzdh2f2) (`1-0`)
+
+Ambiorix needs something to help it make good moves in the opening. Just _something_. It takes a couple more moves, but Ambiorix collapsed under the pressure of an attack after pushing all its pawns.

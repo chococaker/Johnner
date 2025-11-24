@@ -6,13 +6,14 @@
 #include <random>
 #include <limits>
 #include <stdexcept>
+#include <filesystem>
 
 void runEvaluator() {
     choco::initBitboards();
     choco::initTT();
     std::cout << "Finished init" << std::endl;
 
-    choco::Board bb = choco::Board("k7/2K5/4R3/8/8/8/8/8 w - - 0 1");
+    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
     choco::Search engine(bb);
