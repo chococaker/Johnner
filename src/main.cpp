@@ -13,7 +13,7 @@ void runEvaluator() {
     choco::initTT();
     std::cout << "Finished init" << std::endl;
 
-    choco::Board bb = choco::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    choco::Board bb = choco::Board("8/1Q2qk2/6n1/B7/5p1p/8/5PPP/6K1 w - - 0 1");
 
     std::cout << (bb.state.activeColor == SIDE_WHITE ? "White" : "Black") << " to move: " << std::endl;
     choco::Search engine(bb);

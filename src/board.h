@@ -36,6 +36,9 @@ namespace choco {
 
     extern const UnmakeMove INVALID_MOVE;
 
+    enum class MateStatus {
+        ONGOING, STALEMATE, WHITE_WIN, BLACK_WIN
+    };
 
     class Board {
     public:
@@ -76,6 +79,9 @@ namespace choco {
         uint64_t plPawnMoveBB(uint8_t square, uint8_t color) const;
 
         uint64_t getAttacks(uint8_t color) const; // get attacks that a color is doing
+
+        // very slow! use for convenience, not speed
+        MateStatus getMateStatus() const;
 
     private:
         inline void putPiece(uint8_t side, uint8_t piece, uint8_t index);

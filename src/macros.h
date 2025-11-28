@@ -84,35 +84,37 @@ namespace choco {
 #define INVALID_SQUARE 64
 #define IS_VALID_SQUARE(X) (X < 64)
 
-#define SIDE_WHITE   (uint8_t)(0)
-#define SIDE_BLACK   (uint8_t)(1)
+static constexpr uint8_t SIDE_WHITE = 0;
+static constexpr uint8_t SIDE_BLACK = 1;
+static constexpr uint8_t oppositeSide(uint8_t side) { return !side; }
 #define OPPOSITE_SIDE(SIDE) (!SIDE)
 
-#define KING     (uint8_t)(0)
-#define QUEEN    (uint8_t)(1)
-#define BISHOP   (uint8_t)(2)
-#define KNIGHT   (uint8_t)(3)
-#define ROOK     (uint8_t)(4)
-#define PAWN     (uint8_t)(5)
+static constexpr uint8_t KING   = 0;
+static constexpr uint8_t QUEEN  = 1;
+static constexpr uint8_t BISHOP = 2;
+static constexpr uint8_t KNIGHT = 3;
+static constexpr uint8_t ROOK   = 4;
+static constexpr uint8_t PAWN   = 5;
+static constexpr uint8_t INVALID_PIECE = 6;
+static constexpr bool isValidPiece(uint8_t piece) { return piece < 6; }
 #define IS_VALID_PIECE(X) (X < 6)
-#define INVALID_PIECE (uint8_t)(6)
 
-#define BITBOARD_RANK_1   (0xFFULL)
-#define BITBOARD_RANK_2   (0xFF00ULL)
-#define BITBOARD_RANK_3   (0xFF0000ULL)
-#define BITBOARD_RANK_4   (0xFF000000ULL)
-#define BITBOARD_RANK_5   (0xFF00000000ULL)
-#define BITBOARD_RANK_6   (0xFF0000000000ULL)
-#define BITBOARD_RANK_7   (0xFF000000000000ULL)
-#define BITBOARD_RANK_8   (0xFF00000000000000ULL)
+static constexpr uint64_t BITBOARD_RANK_1 = 0xFFULL;
+static constexpr uint64_t BITBOARD_RANK_2 = 0xFF00ULL;
+static constexpr uint64_t BITBOARD_RANK_3 = 0xFF0000ULL;
+static constexpr uint64_t BITBOARD_RANK_4 = 0xFF000000ULL;
+static constexpr uint64_t BITBOARD_RANK_5 = 0xFF00000000ULL;
+static constexpr uint64_t BITBOARD_RANK_6 = 0xFF0000000000ULL;
+static constexpr uint64_t BITBOARD_RANK_7 = 0xFF000000000000ULL;
+static constexpr uint64_t BITBOARD_RANK_8 = 0xFF00000000000000ULL;
 
-#define BITBOARD_FILE_A   (0x0101010101010101ULL)
-#define BITBOARD_FILE_B   (0x0202020202020202ULL)
-#define BITBOARD_FILE_C   (0x0404040404040404ULL)
-#define BITBOARD_FILE_D   (0x0808080808080808ULL)
-#define BITBOARD_FILE_E   (0x1010101010101010ULL)
-#define BITBOARD_FILE_F   (0x2020202020202020ULL)
-#define BITBOARD_FILE_G   (0x4040404040404040ULL)
-#define BITBOARD_FILE_H   (0x8080808080808080ULL)
+static constexpr uint64_t BITBOARD_FILE_A = 0x0101010101010101ULL;
+static constexpr uint64_t BITBOARD_FILE_B = 0x0202020202020202ULL;
+static constexpr uint64_t BITBOARD_FILE_C = 0x0404040404040404ULL;
+static constexpr uint64_t BITBOARD_FILE_D = 0x0808080808080808ULL;
+static constexpr uint64_t BITBOARD_FILE_E = 0x1010101010101010ULL;
+static constexpr uint64_t BITBOARD_FILE_F = 0x2020202020202020ULL;
+static constexpr uint64_t BITBOARD_FILE_G = 0x4040404040404040ULL;
+static constexpr uint64_t BITBOARD_FILE_H = 0x8080808080808080ULL;
 
-#define MAX_MOVES 218
+static constexpr int MAX_MOVES = 218;

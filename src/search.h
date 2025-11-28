@@ -23,6 +23,10 @@ namespace choco {
 
         Move getBestMove(uint16_t depth);
 
+        const Board& getBoard() const;
+
+        void playMove(const Move& move);
+
         ~Search();
     private:
         Board board;
@@ -32,14 +36,10 @@ namespace choco {
         static constexpr uint64_t TT_MASK = TT_SIZE - 1;
 
         TTEntry *TT;
-        TTEntry *QTT;
 
         inline TTEntry& tt_probe(uint64_t key);
-        inline TTEntry& qtt_probe(uint64_t key);
         inline void tt_store(uint64_t key, float eval, int depth, TTFlag flag, const Move& bestMove);
         inline bool tt_lookup(uint64_t key, TTEntry& out, int requiredDepth);
-        inline bool qtt_lookup(uint64_t key, float& out);
-        inline void qtt_store(uint64_t key, float eval);
 
         inline float quiesce(Board& board, float alpha, float beta);
         float negamax(Board& board, float alpha, float beta, int depth);

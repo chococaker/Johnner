@@ -4,6 +4,7 @@ set(PROJECT_SOURCES
     macros.cpp
     perft.cpp
     types.cpp
+    uci.cpp
 )
 
 add_library(core STATIC ${PROJECT_SOURCES})

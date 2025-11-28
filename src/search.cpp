@@ -5,6 +5,7 @@
 #include <random>
 #include <string>
 #include <iostream>
+#include <cmath>
 
 #ifdef BOT_PERF_CTR
 #include <chrono>
@@ -28,7 +29,7 @@ namespace choco {
     static uint64_t TRANSPOSITION_HASHES[15][64] = {0};
 
     void initTT() {
-        std::mt19937_64 engine(690);
+        std::mt19937_64 engine(670);
         for (size_t i = 0; i < 15; i++) {
             for (size_t j = 0; j < 64; j++) {
                 TRANSPOSITION_HASHES[i][j] = engine();
@@ -41,9 +42,6 @@ namespace choco {
 
     inline TTEntry& Search::tt_probe(uint64_t key) {
         return TT[key & TT_MASK];
-    }
-    inline TTEntry& Search::qtt_probe(uint64_t key) {
-        return QTT[key & TT_MASK];
     }
 
     inline void Search::tt_store(uint64_t key, float eval, int depth, TTFlag flag, const Move& bestMove) {
@@ -64,23 +62,6 @@ namespace choco {
             return true;
         }
         return false;
-    }
-
-    inline bool Search::qtt_lookup(uint64_t key, float& out) {
-        TTEntry& e = qtt_probe(key);
-        if (e.key == key) {
-            out = e.eval;
-            return true;
-        }
-        return false;
-    }
-
-    inline void Search::qtt_store(uint64_t key, float eval) {
-        TTEntry& e = qtt_probe(key);
-        e.key = key;
-        e.eval = eval;
-        e.depth = 0;
-        e.flag = TT_EXACT;
     }
 
     uint64_t getHash(const Board& board) {
@@ -159,19 +140,27 @@ namespace choco {
 
     int nodes = 0;
 
+    inline float exchangeVal(Board& board, const Move& move);
+
     inline float Search::quiesce(Board& board, float alpha, float beta) {
         float stand = evaluate(board);
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
 
-        uint64_t key = getHash(board);
-
-        float cached;
-        if (qtt_lookup(key, cached))
-            return cached;
-
         MoveList moves = board.generatePLMoves();
         uint64_t oppPieces = board.occupiedSquares[OPPOSITE_SIDE(board.state.activeColor)];
+
+        for (int i = 1; i < moves.size(); ++i) {
+            const Move& keyMove = moves[i];
+            float key = exchangeVal(board, keyMove);
+            float j = i - 1;
+
+            while (j >= 0 && exchangeVal(board, moves[j]) < key) {
+                moves[j + 1] = moves[j];
+                j = j - 1;
+            }
+            moves[j + 1] = keyMove;
+        }
 
         for (const Move& m : moves) {
             uint64_t toMask = getMask(m.to);
@@ -189,29 +178,36 @@ namespace choco {
             nodes++;
             board.unmakeMove(u);
 
-            if (score >= beta) {
-                qtt_store(key, score);
-                return score;
+            if (score >= beta) return score;
+
+            // delta pruning
+            float delta = STATIC_PIECE_VALUES[QUEEN];
+            if (isValidPiece(m.promotionType)) delta *= 2;
+            if (score < (alpha - delta)) {
+                return alpha;
             }
-            if (score > alpha) {
-                alpha = score;
-            }
+
+            if (score > alpha) alpha = score;
         }
 
-        qtt_store(key, alpha);
         return alpha;
     }
-    
+
+#ifdef BOT_PERF_CTR
     int64_t lastAnalysisMs = 0;
+#endif // BOT_PERF_CTR
 
     float Search::negamax(Board& board, float alpha, float beta, int depth) {
         if (depth <= 0) return quiesce(board, alpha, beta);
+        if (depth <= 0) return evaluate(board);
 
+#ifdef BOT_PERF_CTR
         if (getCurrentMs() - lastAnalysisMs > 1000) {
             lastAnalysisMs = getCurrentMs();
             std::cout << std::to_string(nodes) << " n/s" << std::endl;
             nodes = 0;
         }
+#endif // BOT_PERF_CTR
 
         uint64_t key = getHash(board);
 
@@ -232,18 +228,18 @@ namespace choco {
         bool invalidMove = true;
 
         int movesLooked = 0;
-        const int lmrCutoff = depth == moves.size() * (2.f/3.f);
+        // obsidian lmr formula
+        const int lmrCutoff = (int)(0.99 + std::log(depth) * std::log(moves.size()) / 3.14);
 
         for (const Move& m : moves) {
-            // movesLooked++;
+            bool shouldReduce = (movesLooked++ >= lmrCutoff && depth > 2);
+
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
 
-            float score;
-
             invalidMove = false;
             
-            score = -negamax(board, -beta, -alpha, depth - 1 - 1 * (movesLooked >= lmrCutoff && depth > 3));
+            float score = -negamax(board, -beta, -alpha, depth - 1 - 1 * shouldReduce);
 
             board.unmakeMove(u);
 
@@ -268,10 +264,7 @@ namespace choco {
             else {
                 return 0;
             }
-        } // stalemate
-
-        TTFlag flag = (best <= alpha ? TTFlag::TT_ALPHA : TTFlag::TT_EXACT);
-        tt_store(key, best, depth, flag, bestMove);
+        }
 
         if (best > MATE_EVAL_THRESHOLD) {
             best--;
@@ -279,13 +272,19 @@ namespace choco {
             best++;
         }
 
+        TTFlag flag = (best <= alpha ? TTFlag::TT_ALPHA : TTFlag::TT_EXACT);
+        tt_store(key, best, depth, flag, bestMove);
+
         return best;
     }
 
 
     Search::Search(const Board& board) : board(board) {
         TT = new TTEntry[TT_SIZE];
-        QTT = new TTEntry[TT_SIZE];
+    }
+
+    const Board& Search::getBoard() const {
+        return board;
     }
 
     Move Search::getBestMove(uint16_t depth) {
@@ -293,20 +292,23 @@ namespace choco {
         float bestEval = -9999999999999;
 
         for (int d = 2; d <= depth; d++) { // "iterative deepening"
-            std::cout << "Searching " << std::to_string(d) << "-ply (";
             MoveList moves = board.generatePLMoves();
+#ifdef BOT_PERF_CTR
+            std::cout << "Searching " << std::to_string(d) << "-ply (";
             std::cout << std::to_string(moves.size()) << " PL moves)" << std::endl;
+#endif // BOT_PERF_CTR
 
             for (const Move& move : moves) {
                 UnmakeMove unmake = board.makeMove(move);
                 if (!unmake.isValid()) continue;
+#ifdef BOT_PERF_CTR
                 std::cout << "  > Attempting " << indexToPrettyString(move.from)
                         << " to " << indexToPrettyString(move.to) << " - ";
-
+#endif // BOT_PERF_CTR
                 float eval = -negamax(board,
-                                    -9999999999999,
-                                    9999999999999,
-                                    d);
+                                      -9999999999999,
+                                      9999999999999,
+                                      d);
                 std::cout << std::to_string(eval) << std::endl;
                 board.unmakeMove(unmake);
 
@@ -316,20 +318,26 @@ namespace choco {
                 }
             }
 
+#ifdef BOT_PERF_CTR
             std::cout << std::to_string(d) << "-ply best move: "
                       << choco::pieceToPrettyString(bestMove.pieceType)
                       << " "
                       << choco::indexToPrettyString(bestMove.from)
                       << " to " << choco::indexToPrettyString(bestMove.to)
                       << std::endl;
+#endif // BOT_PERF_CTR
         }
 
         return bestMove;
     }
 
+    void Search::playMove(const Move& move) {
+        board.makeMove(move);
+    }
+
     inline float exchangeVal(Board& board, const Move& move) {
         uint8_t capturedPiece = getPieceOnSquare(board.bitboards[board.state.activeColor], move.to);
-        return (capturedPiece == INVALID_PIECE) ? 0 : STATIC_PIECE_VALUES[move.pieceType];
+        return isValidPiece(capturedPiece) ? STATIC_PIECE_VALUES[capturedPiece] - STATIC_PIECE_VALUES[move.pieceType] : 0;
     }
 
     inline void Search::orderMoves(Board& board, uint64_t boardHash, MoveList& moves) {
@@ -349,7 +357,7 @@ namespace choco {
 
         // insertion sort
         // MVV/LVA
-        for (int i = (lookupFound ? 0 : 1); i < moves.size(); ++i) {
+        for (int i = (lookupFound ? 1 : 2); i < moves.size(); ++i) {
             const Move& keyMove = moves[i];
             uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], keyMove.to);
             float key = exchangeVal(board, keyMove);
@@ -365,6 +373,5 @@ namespace choco {
 
     Search::~Search() {
         delete[] TT;
-        delete[] QTT;
     }
 }

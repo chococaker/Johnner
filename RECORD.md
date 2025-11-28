@@ -21,3 +21,7 @@ Ambiorix still doesn't have PSTs, so it loses more quickly. It gets mated in the
 **[11/23/2025]** [Lichess as Firefly008](https://lichess.org/mWzdh2f2) (`1-0`)
 
 Ambiorix needs something to help it make good moves in the opening. Just _something_. It takes a couple more moves, but Ambiorix collapsed under the pressure of an attack after pushing all its pawns.
+
+**[11/28/2025]** [Lichess as Firefly008](https://lichess.org/zJERFUGz) (`1/2-1/2`)
+
+Ambiorix plays horribly and is completely lost, but Johnner blunders a draw due to a bug in the quiesence search. Once that's fixed, Johnner will bounce back stronger than ever.

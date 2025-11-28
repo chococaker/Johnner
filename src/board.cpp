@@ -712,6 +712,24 @@ namespace choco {
         return attacks;
     }
 
+    MateStatus Board::getMateStatus() const {
+        Board clone = *this;
+        
+        MoveList moves = clone.generatePLMoves();
+
+        for (const Move& move : moves) {
+            if (clone.makeMove(move).isValid()) return MateStatus::ONGOING;
+        }
+
+        // no legal moves
+        if (getAttacks(oppositeSide(state.activeColor)) & bitboards[state.activeColor][KING]) {
+            if (state.activeColor == SIDE_WHITE) return MateStatus::BLACK_WIN;
+            else return MateStatus::WHITE_WIN;
+        }
+
+        return MateStatus::STALEMATE;
+    }
+
     uint64_t Board::plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const {
         switch (pieceType) {
             case KING: return plKingMoveBB(square, color);

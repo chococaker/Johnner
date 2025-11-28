@@ -16,7 +16,9 @@ int main(int argc, char* argv[]) {
 #endif
     choco::Board board(fen);
     uint32_t nodesSearched = choco::perft(board, depth, true, true);
+#ifdef DEBUG_PERFT
     auto end = std::chrono::steady_clock::now();
+#endif
 
 #ifdef DEBUG_PERFT
     std::chrono::duration<double> elapsed = end - start;
