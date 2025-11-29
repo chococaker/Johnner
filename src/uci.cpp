@@ -26,15 +26,15 @@ namespace choco {
         } else if (tokens[0] == "go") {
             go(line);
         } else if (tokens[0] == "stop") {
-
+            stop();
         } else if (tokens[0] == "ponderhit") {
 
         } else if (tokens[0] == "ucinewgame") {
-
+            uciNewGame();
         } else if (tokens[0] == "isready") {
             isReady();
         } else if (tokens[0] == "quit") {
-
+            quit();
         }
     }
 
@@ -43,6 +43,14 @@ namespace choco {
         SearchBounds searchBounds = {};
         searchBounds.moveTime = util::findElement<int64_t>(lineSplit, "movetime").value_or((int64_t)10000);
         search.search(searchBounds);
+    }
+
+    void UciInstance::quit() {
+        search.stop();
+    }
+
+    void UciInstance::stop() {
+        search.stop();
     }
 
     void applyOptions() {
@@ -78,6 +86,10 @@ namespace choco {
         for (const std::string& move : moveVec) {
             search.playMove(uciToMove(search.getBoard(), move));
         }
+    }
+
+    void UciInstance::uciNewGame() {
+        search.clearTT();
     }
 
     void UciInstance::isReady() {

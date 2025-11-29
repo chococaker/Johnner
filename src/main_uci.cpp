@@ -14,7 +14,10 @@ int main() {
     std::cin >> std::ws;
 
     while (true) {
-        std::getline(std::cin, input);
+        if (!std::getline(std::cin, input) && std::cin.eof()) {
+            input = "quit";
+        }
+
         inst.processLine(input);
     }
 }

@@ -9,6 +9,8 @@
 #include <limits>
 #include <thread>
 #include <atomic>
+#include <cstring>
+#include <algorithm>
 
 #ifdef BOT_PERF_CTR
 #include <chrono>
@@ -294,6 +296,7 @@ namespace choco {
     Search::Search(const Board& board) : board(board), depthSoFar(0), searching(false),
             bestMove(bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE }) {
         TT = new TTEntry[TT_SIZE];
+        clearTT();
     }
 
     const Board& Search::getBoard() const {
@@ -312,6 +315,8 @@ namespace choco {
 
         
         while (true) {
+            depthSoFar++;
+
             float depthBestEval = -9999999999999;
             Move depthBestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
             MoveList moves = board.generatePLMoves();
@@ -344,9 +349,11 @@ namespace choco {
                       << "score cp " << std::to_string((int)(bestEval * 100)) << " "
                       << "pv " << moveToUci(bestMove)
                       << std::endl;
-
-            depthSoFar++;
         }
+    }
+
+    void Search::stop() {
+        searching.store(false);
     }
 
     Move Search::getBestMove() {
@@ -357,6 +364,10 @@ namespace choco {
         board.makeMove(move);
         bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
         depthSoFar = 0;
+    }
+
+    void Search::clearTT() {
+        std::fill(TT, TT + TT_SIZE, TTEntry());
     }
 
     inline void Search::orderMoves(Board& board, uint64_t boardHash, MoveList& moves) {

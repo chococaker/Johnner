@@ -25,3 +25,7 @@ Ambiorix needs something to help it make good moves in the opening. Just _someth
 **[11/28/2025]** [Lichess as Firefly008](https://lichess.org/zJERFUGz) (`1/2-1/2`)
 
 Ambiorix plays horribly and is completely lost, but Johnner blunders a draw due to a bug in the quiesence search. Once that's fixed, Johnner will bounce back stronger than ever.
+
+**[11/29/2025]** [Lichess](https://lichess.org/cUOuvww2) (`1-0`)
+
+Johnner and Ambiorix are finally running on time-controlled UCI, and can play with time controls. They both blunder a couple of times without human intervention (letting the bot run deeper when it wishes to play an inaccurate move), but Johnner ekes out a victory by the end.

@@ -44,7 +44,10 @@ namespace choco {
         // commands
         void uci();
         void position(const std::string& line);
+        void uciNewGame();
         void go(const std::string& line);
+        void quit();
+        void stop();
         void isReady();
         void setOption(const std::string& in);
 

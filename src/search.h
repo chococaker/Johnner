@@ -39,6 +39,7 @@ namespace choco {
 
         template<bool clearTT>
         void setBoard(const Board& board);
+        void clearTT();
 
         ~Search();
     private:
@@ -63,13 +64,13 @@ namespace choco {
 
         inline void orderMoves(Board& board, uint64_t boardHash, MoveList& moves);
     };
+    
 
     template<bool clearTT>
     void Search::setBoard(const Board& board) {
         this->board = board;
         if constexpr (clearTT) {
-            delete[] TT;
-            TT = new TTEntry[TT_SIZE];
+            this->clearTT();
         }
     }
 } // namespace choco
