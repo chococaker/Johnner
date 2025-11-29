@@ -345,10 +345,15 @@ namespace choco {
             bestEval = depthBestEval;
             bestMove = depthBestMove;
 
-            std::cout << "info depth " << std::to_string(depthSoFar) << " "
-                      << "score cp " << std::to_string((int)(bestEval * 100)) << " "
-                      << "pv " << moveToUci(bestMove)
-                      << std::endl;
+            std::cout << "info depth " << std::to_string(depthSoFar) << " ";
+
+            if (std::abs(bestEval) >= MATE_EVAL_THRESHOLD) {
+                int mateIn = MATE_EVAL - std::abs(bestEval);
+                std::cout << "score mate " << std::to_string(mateIn / 2 + 1) << " ";
+            } else {
+                std::cout << "score cp " << std::to_string((int)(bestEval * 100)) << " ";
+            }
+            std::cout << "pv " << moveToUci(bestMove) << std::endl;
         }
     }
 
