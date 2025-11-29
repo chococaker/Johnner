@@ -6,6 +6,9 @@
 #include <string>
 #include <iostream>
 #include <cmath>
+#include <limits>
+#include <thread>
+#include <atomic>
 
 #ifdef BOT_PERF_CTR
 #include <chrono>
@@ -14,6 +17,7 @@
 #include "macros.h"
 #include "bithelpers.h"
 #include "eval.h"
+#include "uci.h"
 
 namespace choco {
     namespace {
@@ -140,9 +144,14 @@ namespace choco {
 
     int nodes = 0;
 
-    inline float exchangeVal(Board& board, const Move& move);
+    inline float exchangeVal(Board& board, const Move& move) {
+        uint8_t capturedPiece = getPieceOnSquare(board.bitboards[board.state.activeColor], move.to);
+        return isValidPiece(capturedPiece) ? STATIC_PIECE_VALUES[capturedPiece] - STATIC_PIECE_VALUES[move.pieceType] : 0;
+    }
 
     inline float Search::quiesce(Board& board, float alpha, float beta) {
+        if (!searching.load()) return std::numeric_limits<float>::quiet_NaN();
+
         float stand = evaluate(board);
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
@@ -150,7 +159,7 @@ namespace choco {
         MoveList moves = board.generatePLMoves();
         uint64_t oppPieces = board.occupiedSquares[OPPOSITE_SIDE(board.state.activeColor)];
 
-        for (int i = 1; i < moves.size(); ++i) {
+        for (int i = 1; i < moves.size(); i++) {
             const Move& keyMove = moves[i];
             float key = exchangeVal(board, keyMove);
             float j = i - 1;
@@ -175,6 +184,7 @@ namespace choco {
             if (!u.isValid()) continue;
 
             float score = -quiesce(board, -beta, -alpha);
+            if (std::isnan(score)) return std::numeric_limits<float>::quiet_NaN();
             nodes++;
             board.unmakeMove(u);
 
@@ -198,13 +208,14 @@ namespace choco {
 #endif // BOT_PERF_CTR
 
     float Search::negamax(Board& board, float alpha, float beta, int depth) {
+        if (!searching.load(std::memory_order_acquire)) return std::numeric_limits<double>::quiet_NaN();
+        
         if (depth <= 0) return quiesce(board, alpha, beta);
-        if (depth <= 0) return evaluate(board);
 
 #ifdef BOT_PERF_CTR
         if (getCurrentMs() - lastAnalysisMs > 1000) {
             lastAnalysisMs = getCurrentMs();
-            std::cout << std::to_string(nodes) << " n/s" << std::endl;
+            std::cout << "info nps " << std::to_string(nodes) << std::endl;
             nodes = 0;
         }
 #endif // BOT_PERF_CTR
@@ -241,6 +252,8 @@ namespace choco {
             
             float score = -negamax(board, -beta, -alpha, depth - 1 - 1 * shouldReduce);
 
+            if (std::isnan(score)) return score;
+
             board.unmakeMove(u);
 
             if (score > best) {
@@ -260,8 +273,7 @@ namespace choco {
             if (board.bitboards[board.state.activeColor][KING]
                 & board.getAttacks(OPPOSITE_SIDE(board.state.activeColor))) {
                     return -MATE_EVAL;
-                }
-            else {
+            } else {
                 return 0;
             }
         }
@@ -279,7 +291,8 @@ namespace choco {
     }
 
 
-    Search::Search(const Board& board) : board(board) {
+    Search::Search(const Board& board) : board(board), depthSoFar(0), searching(false),
+            bestMove(bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE }) {
         TT = new TTEntry[TT_SIZE];
     }
 
@@ -287,57 +300,63 @@ namespace choco {
         return board;
     }
 
-    Move Search::getBestMove(uint16_t depth) {
-        Move bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
+    void Search::search(const SearchBounds& bound) {
         float bestEval = -9999999999999;
+        searching.store(true);
 
-        for (int d = 2; d <= depth; d++) { // "iterative deepening"
+        std::thread watcherThread([&]() -> void {
+            std::this_thread::sleep_for(std::chrono::milliseconds(bound.moveTime));
+            searching.store(false);
+        });
+        watcherThread.detach();
+
+        
+        while (true) {
+            float depthBestEval = -9999999999999;
+            Move depthBestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
             MoveList moves = board.generatePLMoves();
-#ifdef BOT_PERF_CTR
-            std::cout << "Searching " << std::to_string(d) << "-ply (";
-            std::cout << std::to_string(moves.size()) << " PL moves)" << std::endl;
-#endif // BOT_PERF_CTR
 
             for (const Move& move : moves) {
                 UnmakeMove unmake = board.makeMove(move);
                 if (!unmake.isValid()) continue;
-#ifdef BOT_PERF_CTR
-                std::cout << "  > Attempting " << indexToPrettyString(move.from)
-                        << " to " << indexToPrettyString(move.to) << " - ";
-#endif // BOT_PERF_CTR
+
                 float eval = -negamax(board,
                                       -9999999999999,
                                       9999999999999,
-                                      d);
-                std::cout << std::to_string(eval) << std::endl;
+                                      depthSoFar);
+                if (std::isnan(eval) || !searching) {
+                    std::cout << "bestmove " << moveToUci(bestMove) << std::endl;
+                    return;
+                }
+
                 board.unmakeMove(unmake);
 
-                if (eval > bestEval) {
-                    bestEval = eval;
-                    bestMove = move;
+                if (eval > depthBestEval) {
+                    depthBestEval = eval;
+                    depthBestMove = move;
                 }
             }
 
-#ifdef BOT_PERF_CTR
-            std::cout << std::to_string(d) << "-ply best move: "
-                      << choco::pieceToPrettyString(bestMove.pieceType)
-                      << " "
-                      << choco::indexToPrettyString(bestMove.from)
-                      << " to " << choco::indexToPrettyString(bestMove.to)
-                      << std::endl;
-#endif // BOT_PERF_CTR
-        }
+            bestEval = depthBestEval;
+            bestMove = depthBestMove;
 
+            std::cout << "info depth " << std::to_string(depthSoFar) << " "
+                      << "score cp " << std::to_string((int)(bestEval * 100)) << " "
+                      << "pv " << moveToUci(bestMove)
+                      << std::endl;
+
+            depthSoFar++;
+        }
+    }
+
+    Move Search::getBestMove() {
         return bestMove;
     }
 
     void Search::playMove(const Move& move) {
         board.makeMove(move);
-    }
-
-    inline float exchangeVal(Board& board, const Move& move) {
-        uint8_t capturedPiece = getPieceOnSquare(board.bitboards[board.state.activeColor], move.to);
-        return isValidPiece(capturedPiece) ? STATIC_PIECE_VALUES[capturedPiece] - STATIC_PIECE_VALUES[move.pieceType] : 0;
+        bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
+        depthSoFar = 0;
     }
 
     inline void Search::orderMoves(Board& board, uint64_t boardHash, MoveList& moves) {
@@ -357,7 +376,7 @@ namespace choco {
 
         // insertion sort
         // MVV/LVA
-        for (int i = (lookupFound ? 1 : 2); i < moves.size(); ++i) {
+        for (int i = (lookupFound ? 1 : 2); i < moves.size(); i++) {
             const Move& keyMove = moves[i];
             uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], keyMove.to);
             float key = exchangeVal(board, keyMove);

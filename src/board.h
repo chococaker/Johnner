@@ -83,6 +83,8 @@ namespace choco {
         // very slow! use for convenience, not speed
         MateStatus getMateStatus() const;
 
+        Board& operator=(const Board& other);
+
     private:
         inline void putPiece(uint8_t side, uint8_t piece, uint8_t index);
         inline void removePiece(uint8_t side, uint8_t piece, uint8_t index);

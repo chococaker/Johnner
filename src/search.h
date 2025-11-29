@@ -4,6 +4,9 @@
 #include "board.h"
 #include "types.h"
 
+#include <atomic>
+#include <thread>
+
 namespace choco {
     void initTT(); // should be called before any engine stuff
     
@@ -17,19 +20,33 @@ namespace choco {
         Move bestMove;
     };
 
+    struct SearchBounds {
+        int64_t moveTime;
+    };
+
     class Search {
     public:
         Search(const Board& board);
 
-        Move getBestMove(uint16_t depth);
+        void search(const SearchBounds& bound);
+        void stop();
+
+        Move getBestMove();
 
         const Board& getBoard() const;
 
         void playMove(const Move& move);
 
+        template<bool clearTT>
+        void setBoard(const Board& board);
+
         ~Search();
     private:
         Board board;
+        Move bestMove;
+
+        int depthSoFar;
+        std::atomic<bool> searching;
 
         static constexpr int TT_BITS  = 22;
         static constexpr size_t TT_SIZE  = 1 << TT_BITS;
@@ -46,4 +63,13 @@ namespace choco {
 
         inline void orderMoves(Board& board, uint64_t boardHash, MoveList& moves);
     };
+
+    template<bool clearTT>
+    void Search::setBoard(const Board& board) {
+        this->board = board;
+        if constexpr (clearTT) {
+            delete[] TT;
+            TT = new TTEntry[TT_SIZE];
+        }
+    }
 } // namespace choco

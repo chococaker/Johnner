@@ -1,9 +1,11 @@
 #pragma once
 
+#include <string>
+#include <cstdint>
+
 #define BOT_PERF_CTR
 
 #ifdef BOT_PERF_CTR
-#include <cstdint>
 namespace choco {
     extern uint64_t consideredMoves;
 }
@@ -118,3 +120,5 @@ static constexpr uint64_t BITBOARD_FILE_G = 0x4040404040404040ULL;
 static constexpr uint64_t BITBOARD_FILE_H = 0x8080808080808080ULL;
 
 static constexpr int MAX_MOVES = 218;
+
+static const std::string STARTING_POS = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

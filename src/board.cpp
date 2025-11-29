@@ -13,6 +13,7 @@
 
 #include "macros.h"
 #include "types.h"
+#include "str_util.h"
 
 
 #define ALL_OCCUPIED_SQUARES (occupiedSquares[SIDE_WHITE] | occupiedSquares[SIDE_BLACK])
@@ -21,20 +22,6 @@ namespace choco {
     const UnmakeMove INVALID_MOVE = {{INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE}, INVALID_PIECE};
 
     namespace {
-        // https://stackoverflow.com/a/46931770
-        std::vector<std::string> split(std::string s, std::string delimiter) {
-            size_t pos_start = 0, pos_end, delim_len = delimiter.length();
-            std::string token;
-            std::vector<std::string> res;
-            while ((pos_end = s.find(delimiter, pos_start)) != std::string::npos) {
-                token = s.substr(pos_start, pos_end - pos_start);
-                pos_start = pos_end + delim_len;
-                res.push_back(token);
-            }
-            res.push_back(s.substr(pos_start));
-            return res;
-        }
-
         void addOffsetExtractedMoves(uint64_t bitboard, uint8_t piece, uint8_t offset, MoveList& moveVec) {
             if (offset > 0) {
                 while (bitboard) {
@@ -313,13 +300,6 @@ namespace choco {
         initKingBoards();
     }
 
-    bool Move::operator==(const Move& other) {
-        return pieceType == other.pieceType
-                && from == other.from
-                && to == other.to
-                && promotionType == other.promotionType;
-    }
-
     bool UnmakeMove::isValid() const {
         return IS_VALID_PIECE(move.pieceType);
     }
@@ -347,10 +327,10 @@ namespace choco {
     }
 
     Board::Board(std::string fen) : Board() {
-        std::vector<std::string> fenParts = split(fen, " ");
+        std::vector<std::string> fenParts = util::split(fen, " ");
         
         // piece positions
-        std::vector<std::string> positions = split(fenParts[0], "/");
+        std::vector<std::string> positions = util::split(fenParts[0], "/");
         for (int rank = 0; rank < 8; rank++) {
             const std::string& row = positions[7 - rank];
             int file = 0;
@@ -805,6 +785,14 @@ namespace choco {
         bb |= captureRPawn;
 
         return bb;
+    }
+
+    Board& Board::operator=(const Board& other) {
+        std::memcpy(bitboards, other.bitboards, sizeof(bitboards));
+        occupiedSquares[SIDE_WHITE] = other.occupiedSquares[SIDE_WHITE];
+        occupiedSquares[SIDE_BLACK] = other.occupiedSquares[SIDE_BLACK];
+        state = other.state;
+        return *this;
     }
 
 

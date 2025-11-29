@@ -3,6 +3,13 @@
 #include <utility>
 
 namespace choco {
+    bool Move::operator==(const Move& other) const {
+        return pieceType == other.pieceType
+                && from == other.from
+                && to == other.to
+                && promotionType == other.promotionType;
+    }
+
     MoveList::MoveList() : i(0) { }
 
     Move& MoveList::operator[](size_t n) {

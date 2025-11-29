@@ -180,6 +180,6 @@ namespace choco {
             });
         }
 
-        return (activeMaterial - oppMaterial) + (pst * .01f);
+        return (activeMaterial - oppMaterial) + (pst * .015f);
     }
 } // namespace choco

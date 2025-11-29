@@ -20,7 +20,7 @@ namespace choco {
         uint8_t to;
         uint8_t promotionType;
 
-        bool operator==(const Move& other);
+        bool operator==(const Move& other) const;
     };
 
     class MoveList {
@@ -96,7 +96,7 @@ namespace choco {
         Iterator begin();
         Iterator end();
     private:
-        static constexpr size_t MAX_MOVE_COUNT = 100;
+        static constexpr size_t MAX_MOVE_COUNT = 218;
         Move moves[MAX_MOVE_COUNT];
         uint8_t i;
     };
