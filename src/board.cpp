@@ -587,6 +587,19 @@ namespace choco {
         return moves;
     }
 
+    MoveList Board::generatePLCaptures() const {
+        MoveList moves;
+        
+        addPawnCaptures(moves);
+        addQueenCaptures(moves);
+        addKnightCaptures(moves);
+        addBishopCaptures(moves);
+        addRookCaptures(moves);
+        addKingCaptures(moves);
+
+        return moves;
+    }
+
     void Board::addKingMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][KING], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plKingMoveBB(index, state.activeColor), KING, index, moves);
@@ -611,9 +624,23 @@ namespace choco {
         }
     }
 
+    void Board::addKingCaptures(MoveList& moves) const {
+        iterateIndices(bitboards[state.activeColor][KING], [this, &moves](uint8_t index) -> void {
+            addOriginExtractedMoves(plKingMoveBB(index, state.activeColor) & occupiedSquares[oppositeSide(state.activeColor)],
+                                    KING, index, moves);
+        });
+    }
+
     void Board::addQueenMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][QUEEN], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plQueenMoveBB(index, state.activeColor), QUEEN, index, moves);
+        });
+    }
+
+    void Board::addQueenCaptures(MoveList& moves) const {
+        iterateIndices(bitboards[state.activeColor][QUEEN], [this, &moves](uint8_t index) -> void {
+            addOriginExtractedMoves(plQueenMoveBB(index, state.activeColor) & occupiedSquares[oppositeSide(state.activeColor)],
+                                    QUEEN, index, moves);
         });
     }
 
@@ -622,16 +649,37 @@ namespace choco {
             addOriginExtractedMoves(plKnightMoveBB(index, state.activeColor), KNIGHT, index, moves);
         });
     }
+    
+    void Board::addKnightCaptures(MoveList& moves) const {
+        iterateIndices(bitboards[state.activeColor][KNIGHT], [this, &moves](uint8_t index) -> void {
+            addOriginExtractedMoves(plKnightMoveBB(index, state.activeColor) & occupiedSquares[oppositeSide(state.activeColor)],
+                                    KNIGHT, index, moves);
+        });
+    }
 
     void Board::addBishopMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][BISHOP], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plBishopMoveBB(index, state.activeColor), BISHOP, index, moves);
         });
     }
+    
+    void Board::addBishopCaptures(MoveList& moves) const {
+        iterateIndices(bitboards[state.activeColor][BISHOP], [this, &moves](uint8_t index) -> void {
+            addOriginExtractedMoves(plBishopMoveBB(index, state.activeColor) & occupiedSquares[oppositeSide(state.activeColor)],
+                                    BISHOP, index, moves);
+        });
+    }
 
     void Board::addRookMoves(MoveList& moves) const {
         iterateIndices(bitboards[state.activeColor][ROOK], [this, &moves](uint8_t index) -> void {
             addOriginExtractedMoves(plRookMoveBB(index, state.activeColor), ROOK, index, moves);
+        });
+    }
+
+    void Board::addRookCaptures(MoveList& moves) const {
+        iterateIndices(bitboards[state.activeColor][ROOK], [this, &moves](uint8_t index) -> void {
+            addOriginExtractedMoves(plRookMoveBB(index, state.activeColor) & occupiedSquares[oppositeSide(state.activeColor)],
+                                    ROOK, index, moves);
         });
     }
 
@@ -671,6 +719,25 @@ namespace choco {
         // promotion
         uint64_t promotedPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & promoterMask, 8) & emptySquares;
         addOffsetExtractedPromotionMoves(promotedPawns, 8 * shiftFactor, moves);
+    }
+
+    void Board::addPawnCaptures(MoveList& moves) const {
+        int shiftFactor = state.activeColor == SIDE_WHITE ? 1 : -1;
+
+        if (!bitboards[state.activeColor][PAWN]) return;
+
+        uint8_t color = state.activeColor;
+        uint64_t promotedMask = (color == SIDE_WHITE) ? BITBOARD_RANK_8 : BITBOARD_RANK_1;
+
+        // captures
+        uint64_t oppSquares = occupiedSquares[OPPOSITE_SIDE(color)];
+        if (IS_VALID_SQUARE(state.enpassantSquare)) oppSquares |= getMask(state.enpassantSquare);
+        uint64_t captureLPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_RIGHT_MASK[color], 7) & oppSquares;
+        uint64_t captureRPawns = shiftLeftBasedOnColor(color, bitboards[color][PAWN] & ~PAWN_LEFT_MASK[color], 9) & oppSquares;
+        addOffsetExtractedMoves(captureLPawns & ~promotedMask, PAWN, 7 * shiftFactor, moves);
+        addOffsetExtractedMoves(captureRPawns & ~promotedMask, PAWN, 9 * shiftFactor, moves);
+        addOffsetExtractedPromotionMoves(captureLPawns & promotedMask, 7 * shiftFactor, moves);
+        addOffsetExtractedPromotionMoves(captureRPawns & promotedMask, 9 * shiftFactor, moves);
     }
 
     uint64_t Board::getAttacks(uint8_t color) const {
@@ -731,6 +798,7 @@ namespace choco {
         return 0;
     }
 
+    // does not include castling
     uint64_t Board::plKingMoveBB(uint8_t square, uint8_t color) const {
         return KING_ATTACKS[square] & (~occupiedSquares[color]);
     }
@@ -762,7 +830,7 @@ namespace choco {
     uint64_t Board::plKnightMoveBB(uint8_t square, uint8_t color) const {
         return KNIGHT_ATTACKS[square] & (~occupiedSquares[color]);
     }
-    
+
     uint64_t Board::plRookMoveBB(uint8_t square, uint8_t color) const {
         const Magic& val = ROOK_TBL[square];
         uint64_t relevantBitboard = (ALL_OCCUPIED_SQUARES) & val.mask;
@@ -802,7 +870,6 @@ namespace choco {
         state = other.state;
         return *this;
     }
-
 
     std::string indexToPrettyString(uint8_t index) {
         return std::string(1, (index % 8) + 'a') + std::to_string(index / 8 + 1);

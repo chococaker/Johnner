@@ -61,6 +61,7 @@ namespace choco {
         void unmakeMove(const UnmakeMove& move);
 
         MoveList generatePLMoves() const;
+        MoveList generatePLCaptures() const;
 
         void addKingMoves(MoveList& moves) const;
         void addQueenMoves(MoveList& moves) const;
@@ -69,13 +70,25 @@ namespace choco {
         void addRookMoves(MoveList& moves) const;
         void addPawnMoves(MoveList& moves) const;
 
+        void addKingCaptures(MoveList& moves) const;
+        void addQueenCaptures(MoveList& moves) const;
+        void addKnightCaptures(MoveList& moves) const;
+        void addBishopCaptures(MoveList& moves) const;
+        void addRookCaptures(MoveList& moves) const;
+        void addPawnCaptures(MoveList& moves) const;
+
         uint64_t plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const;
 
         uint64_t plKingMoveBB(uint8_t square, uint8_t color) const;
+
         uint64_t plQueenMoveBB(uint8_t square, uint8_t color) const;
+
         uint64_t plBishopMoveBB(uint8_t square, uint8_t color) const;
+
         uint64_t plKnightMoveBB(uint8_t square, uint8_t color) const;
+
         uint64_t plRookMoveBB(uint8_t square, uint8_t color) const;
+
         uint64_t plPawnMoveBB(uint8_t square, uint8_t color) const;
 
         uint64_t getAttacks(uint8_t color) const; // get attacks that a color is doing

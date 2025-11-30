@@ -158,8 +158,7 @@ namespace choco {
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
 
-        MoveList moves = board.generatePLMoves();
-        uint64_t oppPieces = board.occupiedSquares[OPPOSITE_SIDE(board.state.activeColor)];
+        MoveList moves = board.generatePLCaptures();
 
         for (int i = 1; i < moves.size(); i++) {
             const Move& keyMove = moves[i];
@@ -175,12 +174,6 @@ namespace choco {
 
         for (const Move& m : moves) {
             uint64_t toMask = getMask(m.to);
-
-            bool capture = toMask & oppPieces;
-            bool promo   = IS_VALID_PIECE(m.promotionType);
-
-            if (!capture && !promo)
-                continue;
 
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
@@ -250,10 +243,10 @@ namespace choco {
 
         int movesLooked = 0;
         // obsidian lmr formula
-        const int lmrCutoff = moves.size() /*(int)(0.99 + std::log(depth) * std::log(moves.size()) / 3.14)*/;
+        const int lmrCutoff = (int)(0.99 + std::log(depth) * std::log(moves.size()) / 3.14);
 
         for (const Move& m : moves) {
-            bool shouldReduce = (movesLooked++ >= lmrCutoff && depth > 2);
+            bool shouldReduce = (movesLooked++ >= lmrCutoff && depth > 3);
 
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
@@ -406,7 +399,7 @@ namespace choco {
             float key = exchangeVal(board, keyMove);
             float j = i - 1;
 
-            while (j >= 0 && exchangeVal(board, moves[j]) > key) {
+            while (j >= 0 && exchangeVal(board, moves[j]) < key) {
                 moves[j + 1] = moves[j];
                 j = j - 1;
             }
