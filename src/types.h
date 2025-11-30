@@ -23,6 +23,8 @@ namespace choco {
         bool operator==(const Move& other) const;
     };
 
+    extern const Move NULL_MOVE;
+
     class MoveList {
     public:
         MoveList();

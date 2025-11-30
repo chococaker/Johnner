@@ -4,6 +4,7 @@
 
 #include "board.h"
 #include "bithelpers.h"
+#include "uci.h"
 
 namespace choco {
     unsigned char pieceCharToType(uint8_t pieceType) {
@@ -102,10 +103,9 @@ namespace choco {
             board.unmakeMove(unmakeMove);
 
             if (print) {
-                std::cout << (char)(choco::getFile(move.from) + 'a') << (char)(choco::getRank(move.from) + '1')
-                        << (char)(choco::getFile(move.to) + 'a') << (char)(choco::getRank(move.to) + '1')
-                        << " "
-                        << std::to_string(nodesThisTime) << std::endl;
+                std::cout << moveToUci(move)
+                          << " "
+                          << std::to_string(nodesThisTime) << std::endl;
             }
         }
 

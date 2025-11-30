@@ -1,8 +1,14 @@
 #include "types.h"
 
 #include <utility>
+#include <limits>
 
 namespace choco {
+    const Move NULL_MOVE = { std::numeric_limits<uint8_t>::max(),
+                                    std::numeric_limits<uint8_t>::max(),
+                                    std::numeric_limits<uint8_t>::max(),
+                                    std::numeric_limits<uint8_t>::max() };
+
     bool Move::operator==(const Move& other) const {
         return pieceType == other.pieceType
                 && from == other.from

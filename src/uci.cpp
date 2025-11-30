@@ -6,6 +6,7 @@
 
 #include "str_util.h"
 #include "macros.h"
+#include "perft.h"
 
 namespace choco {
     UciInstance::UciInstance() : options(), search(Board()) { }
@@ -35,6 +36,10 @@ namespace choco {
             isReady();
         } else if (tokens[0] == "quit") {
             quit();
+        } else if (tokens[0] == "print") {
+            std::cout << boardToPrettyString(search.getBoard()) << std::endl;
+        } else if (tokens[0] == "bench") {
+            bench(line);
         }
     }
 
@@ -58,7 +63,7 @@ namespace choco {
     }
 
     void UciInstance::uci() {
-        std::cout << "id name Johnner_v1" << std::endl;
+        std::cout << "id name Johnner_v2" << std::endl;
         std::cout << "id author chococaker\n" << std::endl;
         for (const auto &[name, option]: options) {
             std::cout << "option name " << name << " type " << option.type << " default "
@@ -94,5 +99,18 @@ namespace choco {
 
     void UciInstance::isReady() {
         std::cout << "readyok" << std::endl;
+    }
+
+    void UciInstance::bench(const std::string& line) {
+        std::vector<std::string> tokens = util::split(line, " ");
+        if (tokens.size() != 2) return;
+        int depth = 0;
+        try {
+            depth = std::stoi(tokens[1]);
+        } catch (...) {
+            return;
+        }
+        Board clone = Board(search.getBoard());
+        perft(clone, depth, true, true);
     }
 } // namespace choco

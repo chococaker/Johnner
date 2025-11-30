@@ -11,9 +11,5 @@ add_library(core STATIC ${PROJECT_SOURCES})
 
 target_include_directories(core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_executable(johnner main.cpp)
-target_link_libraries(johnner PRIVATE core)
-add_executable(johnner_perft perft_test.cpp)
-target_link_libraries(johnner_perft PRIVATE core)
-add_executable(johnner_uci main_uci.cpp)
-target_link_libraries(johnner_uci PRIVATE core)
+add_executable(johnner_v2 main.cpp)
+target_link_libraries(johnner_v2 PRIVATE core)

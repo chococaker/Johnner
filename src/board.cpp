@@ -430,6 +430,11 @@ namespace choco {
     UnmakeMove Board::makeMove(const Move& move) {
         UnmakeMove unmakeMove = { move, INVALID_PIECE, state };
 
+        if (move == NULL_MOVE) {
+            state.activeColor = oppositeSide(state.activeColor);
+            return UnmakeMove(move, INVALID_PIECE, state);
+        }
+
         uint64_t movementMask = getMask(move.from) | getMask(move.to);
         bitboards[state.activeColor][move.pieceType] ^= movementMask;
         occupiedSquares[state.activeColor] ^= movementMask;
@@ -525,6 +530,9 @@ namespace choco {
 
     void Board::unmakeMove(const UnmakeMove& unmakeMove) {
         state = unmakeMove.state;
+
+        if (unmakeMove.move == NULL_MOVE) return;
+
         removePiece(state.activeColor, unmakeMove.move.pieceType, unmakeMove.move.to);
         putPiece(state.activeColor, unmakeMove.move.pieceType, unmakeMove.move.from);
 

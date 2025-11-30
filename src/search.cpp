@@ -148,7 +148,7 @@ namespace choco {
 
     inline float exchangeVal(Board& board, const Move& move) {
         uint8_t capturedPiece = getPieceOnSquare(board.bitboards[board.state.activeColor], move.to);
-        return isValidPiece(capturedPiece) ? STATIC_PIECE_VALUES[capturedPiece] - STATIC_PIECE_VALUES[move.pieceType] : 0;
+        return isValidPiece(capturedPiece) ? STATIC_PIECE_VALUES[capturedPiece] - STATIC_PIECE_VALUES[move.pieceType] : -100;
     }
 
     inline float Search::quiesce(Board& board, float alpha, float beta) {
@@ -210,7 +210,7 @@ namespace choco {
 #endif // BOT_PERF_CTR
 
     float Search::negamax(Board& board, float alpha, float beta, int depth) {
-        if (!searching.load(std::memory_order_acquire)) return std::numeric_limits<double>::quiet_NaN();
+        if (!searching.load(std::memory_order_acquire)) return std::numeric_limits<float>::quiet_NaN();
         
         if (depth <= 0) return quiesce(board, alpha, beta);
 
@@ -231,6 +231,14 @@ namespace choco {
             if (entry.flag == TT_BETA  && entry.eval >= beta)  return beta;
         }
 
+        // nmp
+        // int r = 3; // nmp reduction
+        // UnmakeMove nullUm = board.makeMove(NULL_MOVE);
+        // int v = -negamax(board, -beta, -(beta - 1), depth - r);
+        // board.unmakeMove(nullUm); // null move is always legal
+        // if (v >= beta)
+        //     return v;
+
         float best = -MATE_EVAL;
         Move bestMove;
 
@@ -242,7 +250,7 @@ namespace choco {
 
         int movesLooked = 0;
         // obsidian lmr formula
-        const int lmrCutoff = (int)(0.99 + std::log(depth) * std::log(moves.size()) / 3.14);
+        const int lmrCutoff = moves.size() /*(int)(0.99 + std::log(depth) * std::log(moves.size()) / 3.14)*/;
 
         for (const Move& m : moves) {
             bool shouldReduce = (movesLooked++ >= lmrCutoff && depth > 2);
@@ -253,10 +261,9 @@ namespace choco {
             invalidMove = false;
             
             float score = -negamax(board, -beta, -alpha, depth - 1 - 1 * shouldReduce);
+            board.unmakeMove(u);
 
             if (std::isnan(score)) return score;
-
-            board.unmakeMove(u);
 
             if (score > best) {
                 best = score;
@@ -326,9 +333,9 @@ namespace choco {
                 if (!unmake.isValid()) continue;
 
                 float eval = -negamax(board,
-                                      -9999999999999,
-                                      9999999999999,
-                                      depthSoFar);
+                                    -9999999999999,
+                                    9999999999999,
+                                    depthSoFar);
                 if (std::isnan(eval) || !searching) {
                     std::cout << "bestmove " << moveToUci(bestMove) << std::endl;
                     return;
@@ -349,7 +356,7 @@ namespace choco {
 
             if (std::abs(bestEval) >= MATE_EVAL_THRESHOLD) {
                 int mateIn = MATE_EVAL - std::abs(bestEval);
-                std::cout << "score mate " << std::to_string(mateIn / 2 + 1) << " ";
+                std::cout << "score mate " << std::to_string(mateIn) << " ";
             } else {
                 std::cout << "score cp " << std::to_string((int)(bestEval * 100)) << " ";
             }
@@ -373,6 +380,7 @@ namespace choco {
 
     void Search::clearTT() {
         std::fill(TT, TT + TT_SIZE, TTEntry());
+        depthSoFar = 0;
     }
 
     inline void Search::orderMoves(Board& board, uint64_t boardHash, MoveList& moves) {
