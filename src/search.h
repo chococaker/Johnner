@@ -3,13 +3,12 @@
 #include "macros.h"
 #include "board.h"
 #include "types.h"
+#include "zobrist.h"
 
 #include <atomic>
 #include <thread>
 
 namespace choco {
-    void initTT(); // should be called before any engine stuff
-    
     enum TTFlag : uint8_t { TT_EXACT, TT_ALPHA, TT_BETA };
 
     struct TTEntry {
@@ -41,21 +40,14 @@ namespace choco {
         void setBoard(const Board& board);
         void clearTT();
 
-        ~Search();
     private:
         Board board;
         Move bestMove;
 
-        int depthSoFar;
         std::atomic<bool> searching;
 
-        static constexpr int TT_BITS  = 22;
-        static constexpr size_t TT_SIZE  = 1 << TT_BITS;
-        static constexpr uint64_t TT_MASK = TT_SIZE - 1;
+        ZobristTable<TTEntry> tt;
 
-        TTEntry *TT;
-
-        inline TTEntry& tt_probe(uint64_t key);
         inline void tt_store(uint64_t key, float eval, int depth, TTFlag flag, const Move& bestMove);
         inline bool tt_lookup(uint64_t key, TTEntry& out, int requiredDepth);
 
@@ -63,6 +55,7 @@ namespace choco {
         float negamax(Board& board, float alpha, float beta, int depth);
 
         inline void orderMoves(Board& board, uint64_t boardHash, MoveList& moves);
+        inline float guessMoveOrderEval(Board& board, const Move& move);
     };
     
 

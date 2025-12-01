@@ -52,7 +52,7 @@ namespace choco {
 
         /**
          * @brief Makes a move and sets up game state for the next turn. Move must be pseudo-legal.
-         * If the move was invalid, nothing will occur and INVALID_MOVE will be return
+         * If the move was invalid, nothing will occur and INVALID_MOVE will be returned
          * 
          * @param move the pseudo-legal move
          * @return UnmakeMove or INVALID_MOVE

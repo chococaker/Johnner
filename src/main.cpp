@@ -3,10 +3,11 @@
 #include "uci.h"
 #include "board.h"
 #include "search.h"
+#include "zobrist.h"
 
 int main() {
     choco::initBitboards();
-    choco::initTT();
+    choco::initZobrist();
 
     choco::UciInstance inst{};
 

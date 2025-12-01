@@ -20,6 +20,7 @@
 #include "bithelpers.h"
 #include "eval.h"
 #include "uci.h"
+#include "zobrist.h"
 
 namespace choco {
     namespace {
@@ -30,28 +31,18 @@ namespace choco {
             return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
         }
 #endif
-    }
 
-    static uint64_t TRANSPOSITION_HASHES[15][64] = {0};
-
-    void initTT() {
-        std::mt19937_64 engine(670);
-        for (size_t i = 0; i < 15; i++) {
-            for (size_t j = 0; j < 64; j++) {
-                TRANSPOSITION_HASHES[i][j] = engine();
-            }
+        inline float exchangeVal(Board& board, const Move& move) {
+            uint8_t capturedPiece = getPieceOnSquare(board.bitboards[board.state.activeColor], move.to);
+            return isValidPiece(capturedPiece) ? STATIC_PIECE_VALUES[capturedPiece] - STATIC_PIECE_VALUES[move.pieceType] : -100;
         }
     }
 
     static constexpr float MATE_EVAL = 32000;
-    static constexpr float MATE_EVAL_THRESHOLD = 30000;
-
-    inline TTEntry& Search::tt_probe(uint64_t key) {
-        return TT[key & TT_MASK];
-    }
+    static constexpr float MATE_EVAL_THRESHOLD = 30000; // i can spot mate in 2000
 
     inline void Search::tt_store(uint64_t key, float eval, int depth, TTFlag flag, const Move& bestMove) {
-        TTEntry& e = tt_probe(key);
+        TTEntry& e = tt[key];
         if (e.key != key || depth >= e.depth) {
             e.key = key;
             e.eval = eval;
@@ -62,7 +53,7 @@ namespace choco {
     }
 
     inline bool Search::tt_lookup(uint64_t key, TTEntry& out, int requiredDepth) {
-        TTEntry& e = tt_probe(key);
+        TTEntry& e = tt[key];
         if (e.key == key && e.depth >= requiredDepth) {
             out = e;
             return true;
@@ -70,90 +61,12 @@ namespace choco {
         return false;
     }
 
-    uint64_t getHash(const Board& board) {
-        uint64_t hash = 0;
-
-        for (int color = 0; color < 2; color++) {
-            for (int p = 0; p < 6; p++) {
-                uint64_t bb = board.bitboards[color][p];
-                while (bb) {
-                    uint8_t idx = countTrailingZeros(bb);
-                    bb &= bb - 1;
-                    int hashIdx = p + (color * 6);
-                    hash ^= TRANSPOSITION_HASHES[hashIdx][idx];
-                }
-            }
-        }
-
-        hash ^= TRANSPOSITION_HASHES[12][board.state.activeColor];
-
-        if (board.state.canCastle(SIDE_WHITE, KING))  hash ^= TRANSPOSITION_HASHES[13][0];
-        if (board.state.canCastle(SIDE_WHITE, QUEEN)) hash ^= TRANSPOSITION_HASHES[13][1];
-        if (board.state.canCastle(SIDE_BLACK, KING))  hash ^= TRANSPOSITION_HASHES[13][2];
-        if (board.state.canCastle(SIDE_BLACK, QUEEN)) hash ^= TRANSPOSITION_HASHES[13][3];
-
-        if (IS_VALID_SQUARE(board.state.enpassantSquare)) {
-            hash ^= TRANSPOSITION_HASHES[14][getFile(board.state.enpassantSquare)];
-        }
-
-        return hash;
-    }
-
-    uint64_t getHash(const Board& board, const Move& nextMove) {
-        uint64_t hash = getHash(board);
-
-        hash ^= TRANSPOSITION_HASHES[nextMove.pieceType][nextMove.from];
-        hash ^= TRANSPOSITION_HASHES[nextMove.pieceType][nextMove.to];
-
-        uint8_t capturedPiece = getPieceOnSquare(
-                                board.bitboards[OPPOSITE_SIDE(board.state.activeColor)],
-                                nextMove.to);
-        if (capturedPiece != INVALID_PIECE) {
-            hash ^= TRANSPOSITION_HASHES[capturedPiece][nextMove.to];
-        }
-
-        hash ^= TRANSPOSITION_HASHES[12][board.state.activeColor];
-        hash ^= TRANSPOSITION_HASHES[12][OPPOSITE_SIDE(board.state.activeColor)];
-
-        if (nextMove.pieceType == KING && (nextMove.from == E1 || nextMove.from == E8)
-            && (board.state.canCastle(board.state.activeColor, KING)
-                || board.state.canCastle(board.state.activeColor, KING))) { // disable castling
-            hash ^= TRANSPOSITION_HASHES[13][0 + 2 * board.state.activeColor];
-            hash ^= TRANSPOSITION_HASHES[13][1 + 2 * board.state.activeColor];
-        }
-
-        if ((nextMove.from == A1 || nextMove.to == A1) && board.state.canCastle(SIDE_WHITE, KING))
-            hash ^= TRANSPOSITION_HASHES[13][0];
-        if ((nextMove.from == H1 || nextMove.to == H1) && board.state.canCastle(SIDE_WHITE, QUEEN))
-            hash ^= TRANSPOSITION_HASHES[13][1];
-        if ((nextMove.from == A8 || nextMove.to == A8) && board.state.canCastle(SIDE_BLACK, KING))
-            hash ^= TRANSPOSITION_HASHES[13][2];
-        if ((nextMove.from == H8 || nextMove.to == H8) && board.state.canCastle(SIDE_BLACK, QUEEN))
-            hash ^= TRANSPOSITION_HASHES[13][3];
-        
-        // undo getHash(Board&), since the en passant square has changed
-        if (IS_VALID_SQUARE(board.state.enpassantSquare)) {
-            hash ^= TRANSPOSITION_HASHES[14][getFile(board.state.enpassantSquare)];
-        }
-
-        // double push (en passant)
-        if (nextMove.pieceType == PAWN && unsignedDist(nextMove.from, nextMove.to) == 16) {
-            hash ^= TRANSPOSITION_HASHES[15][getFile(nextMove.from)];
-        }
-
-        return hash;
-    }
-
     int nodes = 0;
-
-    inline float exchangeVal(Board& board, const Move& move) {
-        uint8_t capturedPiece = getPieceOnSquare(board.bitboards[board.state.activeColor], move.to);
-        return isValidPiece(capturedPiece) ? STATIC_PIECE_VALUES[capturedPiece] - STATIC_PIECE_VALUES[move.pieceType] : -100;
-    }
 
     inline float Search::quiesce(Board& board, float alpha, float beta) {
         if (!searching.load()) return std::numeric_limits<float>::quiet_NaN();
 
+        // stand pat
         float stand = evaluate(board);
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
@@ -185,13 +98,6 @@ namespace choco {
 
             if (score >= beta) return score;
 
-            // delta pruning
-            float delta = STATIC_PIECE_VALUES[QUEEN];
-            if (isValidPiece(m.promotionType)) delta *= 2;
-            if (score < (alpha - delta)) {
-                return alpha;
-            }
-
             if (score > alpha) alpha = score;
         }
 
@@ -208,7 +114,7 @@ namespace choco {
         if (depth <= 0) return quiesce(board, alpha, beta);
 
 #ifdef BOT_PERF_CTR
-        if (getCurrentMs() - lastAnalysisMs > 1000) {
+        if (getCurrentMs() - lastAnalysisMs >= 1000) {
             lastAnalysisMs = getCurrentMs();
             std::cout << "info nps " << std::to_string(nodes) << std::endl;
             nodes = 0;
@@ -224,14 +130,6 @@ namespace choco {
             if (entry.flag == TT_BETA  && entry.eval >= beta)  return beta;
         }
 
-        // nmp
-        // int r = 3; // nmp reduction
-        // UnmakeMove nullUm = board.makeMove(NULL_MOVE);
-        // int v = -negamax(board, -beta, -(beta - 1), depth - r);
-        // board.unmakeMove(nullUm); // null move is always legal
-        // if (v >= beta)
-        //     return v;
-
         float best = -MATE_EVAL;
         Move bestMove;
 
@@ -242,18 +140,20 @@ namespace choco {
         bool invalidMove = true;
 
         int movesLooked = 0;
-        // obsidian lmr formula
-        const int lmrCutoff = (int)(0.99 + std::log(depth) * std::log(moves.size()) / 3.14);
 
         for (const Move& m : moves) {
-            bool shouldReduce = (movesLooked++ >= lmrCutoff && depth > 3);
-
             UnmakeMove u = board.makeMove(m);
             if (!u.isValid()) continue;
 
             invalidMove = false;
+            movesLooked++;
             
-            float score = -negamax(board, -beta, -alpha, depth - 1 - 1 * shouldReduce);
+            // obsidian LMR formula
+            int reductionDepth = depth <= 3 ? 1 : static_cast<int>(0.99 + std::log(depth) * std::log(movesLooked) / 3.14 + .5);
+            // my LMR formula
+            // int reductionDepth = 1;
+
+            float score = -negamax(board, -beta, -alpha, depth - reductionDepth);
             board.unmakeMove(u);
 
             if (std::isnan(score)) return score;
@@ -293,11 +193,9 @@ namespace choco {
     }
 
 
-    Search::Search(const Board& board) : board(board), depthSoFar(0), searching(false),
-            bestMove(bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE }) {
-        TT = new TTEntry[TT_SIZE];
-        clearTT();
-    }
+    Search::Search(const Board& board) : board(board), searching(false),
+            bestMove(bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE }),
+            tt(TTEntry()) {}
 
     const Board& Search::getBoard() const {
         return board;
@@ -313,10 +211,9 @@ namespace choco {
         });
         watcherThread.detach();
 
+        int depthSoFar = 0;
         
         while (true) {
-            depthSoFar++;
-
             float depthBestEval = -9999999999999;
             Move depthBestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
             MoveList moves = board.generatePLMoves();
@@ -330,6 +227,7 @@ namespace choco {
                                     9999999999999,
                                     depthSoFar);
                 if (std::isnan(eval) || !searching) {
+                    if (depthBestEval > bestEval) bestMove = depthBestMove;
                     std::cout << "bestmove " << moveToUci(bestMove) << std::endl;
                     return;
                 }
@@ -354,6 +252,8 @@ namespace choco {
                 std::cout << "score cp " << std::to_string((int)(bestEval * 100)) << " ";
             }
             std::cout << "pv " << moveToUci(bestMove) << std::endl;
+
+            depthSoFar++;
         }
     }
 
@@ -368,12 +268,10 @@ namespace choco {
     void Search::playMove(const Move& move) {
         board.makeMove(move);
         bestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
-        depthSoFar = 0;
     }
 
     void Search::clearTT() {
-        std::fill(TT, TT + TT_SIZE, TTEntry());
-        depthSoFar = 0;
+        tt.reset(TTEntry());
     }
 
     inline void Search::orderMoves(Board& board, uint64_t boardHash, MoveList& moves) {
@@ -391,15 +289,14 @@ namespace choco {
             }
         }
 
-        // insertion sort
-        // MVV/LVA
+        // sort
         for (int i = (lookupFound ? 1 : 2); i < moves.size(); i++) {
             const Move& keyMove = moves[i];
             uint8_t capturedPieceA = getPieceOnSquare(board.bitboards[board.state.activeColor], keyMove.to);
-            float key = exchangeVal(board, keyMove);
+            float key = guessMoveOrderEval(board, keyMove);
             float j = i - 1;
 
-            while (j >= 0 && exchangeVal(board, moves[j]) < key) {
+            while (j >= 0 && guessMoveOrderEval(board, moves[j]) < key) {
                 moves[j + 1] = moves[j];
                 j = j - 1;
             }
@@ -407,7 +304,9 @@ namespace choco {
         }
     }
 
-    Search::~Search() {
-        delete[] TT;
+    inline float Search::guessMoveOrderEval(Board& board, const Move& move) {
+        return exchangeVal(board, move);
+        // TTEntry entry;
+        // return tt_lookup(getHash(board, move), entry, 0) ? entry.eval : exchangeVal(board, move);
     }
 }

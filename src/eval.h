@@ -9,6 +9,8 @@ namespace choco {
         0, 9, 3.2, 3, 5, 1
     };
 
+    static constexpr float CENTIPAWN = STATIC_PIECE_VALUES[PAWN] / 100.f;
+
     // https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
     static const float MG_PIECE_SQUARE_TABLES[6][64] = {
         { // king
@@ -137,13 +139,6 @@ namespace choco {
     };
 
     inline float pstValueInterpolated(uint8_t piece, uint8_t index, float materialSum) {
-        static constexpr float STARTING_MATERIAL = STATIC_PIECE_VALUES[KING] * 2
-                                                 + STATIC_PIECE_VALUES[QUEEN] * 2
-                                                 + STATIC_PIECE_VALUES[BISHOP] * 4
-                                                 + STATIC_PIECE_VALUES[KNIGHT] * 4
-                                                 + STATIC_PIECE_VALUES[ROOK] * 4
-                                                 + STATIC_PIECE_VALUES[PAWN] * 16;
-
         if (materialSum > 40) {
             return MG_PIECE_SQUARE_TABLES[piece][index];
         } else {
@@ -151,35 +146,50 @@ namespace choco {
         }
     }
 
-    float evaluate(const Board& board) {
-        float activeMaterial = 0;
-        float oppMaterial = 0;
-        uint8_t activeColor = board.state.activeColor;
-        uint8_t oppColor = OPPOSITE_SIDE(activeColor);
+    float advantageFor(const Board& board, uint8_t side) {
+        static constexpr float MATERIAL_WEIGHT       = 1;
+        static constexpr float PST_WEIGHT            = 1 * CENTIPAWN;
+        static constexpr float OPEN_FILE_ROOK_WEIGHT = 0 * CENTIPAWN;
+        static constexpr float DOUBLED_PAWN_WEIGHT   = -0 * CENTIPAWN;
+
+        float material = 0;
+        for (int i = 1; i < 6; i++) {
+            material += STATIC_PIECE_VALUES[i] * countOnes(board.bitboards[side][i]);
+        }
 
         float pst = 0;
-
         for (int i = 0; i < 6; i++) {
-            activeMaterial += STATIC_PIECE_VALUES[i] * countOnes(board.bitboards[activeColor][i]);
-            oppMaterial += STATIC_PIECE_VALUES[i] * countOnes(board.bitboards[oppColor][i]);
-        }
-
-        float totalMaterial = activeMaterial + oppMaterial;
-
-        for (int i = 0; i < 6; i++) {
-            iterateIndices(board.bitboards[activeColor][i],
-                [i, &board, &pst, activeColor, totalMaterial](uint8_t index){
-                size_t pstIdx = (board.state.activeColor == SIDE_WHITE) ? 63 - index : index;
-                pst += pstValueInterpolated(i, pstIdx, totalMaterial);
-            });
-
-            iterateIndices(board.bitboards[oppColor][i],
-                [i, &board, &pst, oppColor, totalMaterial](uint8_t index) {
-                size_t pstIdx = (board.state.activeColor == SIDE_WHITE) ? index : 63 - index;
-                pst -= pstValueInterpolated(i, pstIdx, totalMaterial);
+            iterateIndices(board.bitboards[side][i],
+                [i, &board, &pst, side, material](uint8_t index) {
+                size_t pstIdx = (side == SIDE_WHITE) ? 63 - index : index;
+                pst += pstValueInterpolated(i, pstIdx, material);
             });
         }
 
-        return (activeMaterial - oppMaterial) + (pst * .02f);
+        float openFileRookPoints = 0;
+        iterateIndices(board.bitboards[side][ROOK], [&board, &openFileRookPoints, side](uint8_t index) {
+            uint64_t fileMask = getFileMask(getFile(index));
+            if (!(fileMask & board.bitboards[side][PAWN])) {
+                openFileRookPoints++;
+
+                if (!(fileMask & board.bitboards[oppositeSide(side)][PAWN])) {
+                    openFileRookPoints++;
+                }
+            }
+        });
+
+        float doubledPawnCnt = 0;
+        for (int i = 0; i < 8; i++) {
+            doubledPawnCnt += countOnes(board.bitboards[side][PAWN] & getFileMask(i)) - 1;
+        }
+
+        return material * MATERIAL_WEIGHT
+             + pst * PST_WEIGHT
+             + openFileRookPoints * OPEN_FILE_ROOK_WEIGHT
+             + doubledPawnCnt * DOUBLED_PAWN_WEIGHT;
+    }
+
+    float evaluate(const Board& board) {
+        return advantageFor(board, board.state.activeColor) - advantageFor(board, oppositeSide(board.state.activeColor));
     }
 } // namespace choco

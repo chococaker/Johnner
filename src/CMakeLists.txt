@@ -5,6 +5,7 @@ set(PROJECT_SOURCES
     perft.cpp
     types.cpp
     uci.cpp
+    zobrist.cpp
 )
 
 add_library(core STATIC ${PROJECT_SOURCES})
