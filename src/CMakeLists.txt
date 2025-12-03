@@ -2,6 +2,7 @@ set(PROJECT_SOURCES
     board.cpp
     search.cpp
     macros.cpp
+    movegen.cpp
     perft.cpp
     types.cpp
     uci.cpp

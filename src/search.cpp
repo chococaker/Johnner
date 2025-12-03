@@ -21,6 +21,7 @@
 #include "eval.h"
 #include "uci.h"
 #include "zobrist.h"
+#include "movegen.h"
 
 namespace choco {
     namespace {
@@ -61,7 +62,10 @@ namespace choco {
         return false;
     }
 
-    int nodes = 0;
+    int64_t lastSearchMs = 0;
+    int64_t nodesSearched = 0;
+    int64_t lastSecondNS = 0;
+    int64_t lastDepthNS = 0;
 
     inline float Search::quiesce(Board& board, float alpha, float beta) {
         if (!searching.load()) return std::numeric_limits<float>::quiet_NaN();
@@ -71,7 +75,8 @@ namespace choco {
         if (stand >= beta) return stand;
         if (stand > alpha) alpha = stand;
 
-        MoveList moves = board.generatePLCaptures();
+        MoveList moves;
+        getMoves<MoveType::NOISY>(board, moves);
 
         for (int i = 1; i < moves.size(); i++) {
             const Move& keyMove = moves[i];
@@ -93,7 +98,7 @@ namespace choco {
 
             float score = -quiesce(board, -beta, -alpha);
             if (std::isnan(score)) return std::numeric_limits<float>::quiet_NaN();
-            nodes++;
+            nodesSearched++;
             board.unmakeMove(u);
 
             if (score >= beta) return score;
@@ -104,20 +109,17 @@ namespace choco {
         return alpha;
     }
 
-#ifdef BOT_PERF_CTR
-    int64_t lastAnalysisMs = 0;
-#endif // BOT_PERF_CTR
-
     float Search::negamax(Board& board, float alpha, float beta, int depth) {
         if (!searching.load(std::memory_order_acquire)) return std::numeric_limits<float>::quiet_NaN();
         
         if (depth <= 0) return quiesce(board, alpha, beta);
 
 #ifdef BOT_PERF_CTR
-        if (getCurrentMs() - lastAnalysisMs >= 1000) {
-            lastAnalysisMs = getCurrentMs();
-            std::cout << "info nps " << std::to_string(nodes) << std::endl;
-            nodes = 0;
+        if (getCurrentMs() - lastSearchMs >= 1000) {
+            lastSearchMs = getCurrentMs();
+            std::cout << "info nps " << std::to_string(nodesSearched - lastSecondNS) << std::endl;
+            lastSecondNS = nodesSearched;
+            nodesSearched = 0;
         }
 #endif // BOT_PERF_CTR
 
@@ -133,7 +135,8 @@ namespace choco {
         float best = -MATE_EVAL;
         Move bestMove;
 
-        MoveList moves = board.generatePLMoves();
+        MoveList moves;
+        getMoves<MoveType::ALL>(board, moves);
 
         orderMoves(board, key, moves);
         
@@ -166,18 +169,22 @@ namespace choco {
 
             if (score >= beta) {
                 tt_store(key, best, depth, TTFlag::TT_BETA, m);
-                nodes++;
+                nodesSearched++;
                 return best;
             }
         }
 
         if (invalidMove) {
-            if (board.bitboards[board.state.activeColor][KING]
-                & board.getAttacks(OPPOSITE_SIDE(board.state.activeColor))) {
+            // TEMPORARY MATE CHECK
+            MoveList mateCheckList;
+            getMoves<MoveType::NOISY>(board, mateCheckList);
+            for (const Move& mateCheckMove : mateCheckList) {
+                if (getMask(mateCheckMove.to) & board.bitboards[board.state.activeColor][KING]) {
                     return -MATE_EVAL;
-            } else {
-                return 0;
+                }
             }
+
+            return 0; // stalemate
         }
 
         if (best > MATE_EVAL_THRESHOLD) {
@@ -216,7 +223,8 @@ namespace choco {
         while (true) {
             float depthBestEval = -9999999999999;
             Move depthBestMove = { INVALID_PIECE, INVALID_SQUARE, INVALID_SQUARE, INVALID_PIECE };
-            MoveList moves = board.generatePLMoves();
+            MoveList moves;
+            getMoves<MoveType::ALL>(board, moves);
 
             for (const Move& move : moves) {
                 UnmakeMove unmake = board.makeMove(move);
@@ -226,7 +234,7 @@ namespace choco {
                                     -9999999999999,
                                     9999999999999,
                                     depthSoFar);
-                if (std::isnan(eval) || !searching) {
+                if (std::isnan(eval) || !searching.load()) {
                     if (depthBestEval > bestEval) bestMove = depthBestMove;
                     std::cout << "bestmove " << moveToUci(bestMove) << std::endl;
                     return;

@@ -40,6 +40,8 @@ namespace choco {
             std::cout << boardToPrettyString(search.getBoard()) << std::endl;
         } else if (tokens[0] == "bench") {
             bench(line);
+        } else if (tokens[0] == "printboard") {
+            printboard();
         }
     }
 
@@ -111,6 +113,10 @@ namespace choco {
             return;
         }
         Board clone = Board(search.getBoard());
-        perft(clone, depth, true, true);
+        perft(clone, depth, true);
+    }
+
+    void UciInstance::printboard() {
+        std::cout << boardToPrettyString(search.getBoard()) << std::endl;
     }
 } // namespace choco

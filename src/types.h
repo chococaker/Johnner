@@ -4,13 +4,15 @@
 #include <cstdint>
 #include <vector>
 
+#include "macros.h"
+
 namespace choco {
     class Move {
     public:
         Move() { }
 
         Move(uint8_t pieceType, uint8_t from, uint8_t to)
-                : pieceType(pieceType), from(from), to(to), promotionType(6) { }
+                : pieceType(pieceType), from(from), to(to), promotionType(INVALID_PIECE) { }
 
         Move(uint8_t pieceType, uint8_t from, uint8_t to, uint8_t promotionType)
                 : pieceType(pieceType), from(from), to(to), promotionType(promotionType) { }

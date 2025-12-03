@@ -5,6 +5,7 @@
 #include "board.h"
 #include "bithelpers.h"
 #include "uci.h"
+#include "movegen.h"
 
 namespace choco {
     unsigned char pieceCharToType(uint8_t pieceType) {
@@ -67,7 +68,10 @@ namespace choco {
 
         uint32_t nodesSearched = 0;
 
-        for (const choco::Move& move : board.generatePLMoves()) {
+        MoveList moveList;
+        getMoves<MoveType::ALL>(board, moveList);
+
+        for (const choco::Move& move : moveList) {
             choco::UnmakeMove unmakeMove = board.makeMove(move);
             if (!unmakeMove.isValid()) continue;
 
@@ -78,7 +82,7 @@ namespace choco {
         return nodesSearched;
     }
 
-    uint32_t perft(Board& board, int depth, bool initBB, bool print) {
+    uint32_t perft(Board& board, int depth, bool print) {
         if (depth == 0) {
             std::cout << "1" << std::endl;
             return 1;
@@ -86,11 +90,10 @@ namespace choco {
 
         uint32_t nodesSearched = 0;
 
-        if (initBB) {
-            choco::initBitboards();
-        }
+        MoveList moveList;
+        getMoves<MoveType::ALL>(board, moveList);
 
-        for (const choco::Move& move : board.generatePLMoves()) {
+        for (const choco::Move& move : moveList) {
             choco::UnmakeMove unmakeMove = board.makeMove(move);
             if (!unmakeMove.isValid()) continue;
             

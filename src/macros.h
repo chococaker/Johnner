@@ -119,6 +119,10 @@ static constexpr uint64_t BITBOARD_FILE_F = 0x2020202020202020ULL;
 static constexpr uint64_t BITBOARD_FILE_G = 0x4040404040404040ULL;
 static constexpr uint64_t BITBOARD_FILE_H = 0x8080808080808080ULL;
 
+static constexpr uint64_t BITBOARD_NO_EDGES = ~(BITBOARD_FILE_A | BITBOARD_FILE_H | BITBOARD_RANK_1 | BITBOARD_RANK_8);
+
+static constexpr size_t MAX_SQUARE = 64;
+
 static constexpr int MAX_MOVES = 218;
 
 static const std::string STARTING_POS = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

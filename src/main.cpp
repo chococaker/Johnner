@@ -4,10 +4,11 @@
 #include "board.h"
 #include "search.h"
 #include "zobrist.h"
+#include "movegen.h"
 
 int main() {
-    choco::initBitboards();
     choco::initZobrist();
+    choco::initMoveGen();
 
     choco::UciInstance inst{};
 

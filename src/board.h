@@ -9,8 +9,6 @@
 #include "types.h"
 
 namespace choco {
-    void initBitboards(); // should be called before any move generation
-    
     class GameState {
     public:
         uint8_t activeColor;
@@ -60,43 +58,15 @@ namespace choco {
         UnmakeMove makeMove(const Move& move);
         void unmakeMove(const UnmakeMove& move);
 
-        MoveList generatePLMoves() const;
-        MoveList generatePLCaptures() const;
-
-        void addKingMoves(MoveList& moves) const;
-        void addQueenMoves(MoveList& moves) const;
-        void addKnightMoves(MoveList& moves) const;
-        void addBishopMoves(MoveList& moves) const;
-        void addRookMoves(MoveList& moves) const;
-        void addPawnMoves(MoveList& moves) const;
-
-        void addKingCaptures(MoveList& moves) const;
-        void addQueenCaptures(MoveList& moves) const;
-        void addKnightCaptures(MoveList& moves) const;
-        void addBishopCaptures(MoveList& moves) const;
-        void addRookCaptures(MoveList& moves) const;
-        void addPawnCaptures(MoveList& moves) const;
-
-        uint64_t plMoveBB(uint8_t pieceType, uint8_t square, uint8_t color) const;
-
-        uint64_t plKingMoveBB(uint8_t square, uint8_t color) const;
-
-        uint64_t plQueenMoveBB(uint8_t square, uint8_t color) const;
-
-        uint64_t plBishopMoveBB(uint8_t square, uint8_t color) const;
-
-        uint64_t plKnightMoveBB(uint8_t square, uint8_t color) const;
-
-        uint64_t plRookMoveBB(uint8_t square, uint8_t color) const;
-
-        uint64_t plPawnMoveBB(uint8_t square, uint8_t color) const;
-
-        uint64_t getAttacks(uint8_t color) const; // get attacks that a color is doing
-
-        // very slow! use for convenience, not speed
-        MateStatus getMateStatus() const;
-
         Board& operator=(const Board& other);
+
+        inline uint64_t getOccupiedSquares(uint8_t side) const {
+            return occupiedSquares[side];
+        }
+
+        inline uint64_t getOccupiedSquares() const {
+            return occupiedSquares[SIDE_WHITE] | occupiedSquares[SIDE_BLACK];
+        }
 
     private:
         inline void putPiece(uint8_t side, uint8_t piece, uint8_t index);

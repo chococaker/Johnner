@@ -51,6 +51,7 @@ namespace choco {
         void isReady();
         void setOption(const std::string& in);
         void bench(const std::string& in);
+        void printboard();
 
         UciOptions options;
         Search search;

@@ -112,4 +112,31 @@ namespace choco {
     constexpr inline T unsignedDist(T a, T b) {
          return a > b ? a - b : b - a;
     }
+
+    // creates a bitboard with a line of 1s by stepping until it encounters a 1 (inclusive) or border on the parameter bitboard
+    inline uint64_t walk(uint8_t fileStep, uint8_t rankStep, uint64_t bitboard, uint8_t originIndex) {
+        int8_t rank = getRank(originIndex);
+        int8_t file = getFile(originIndex);
+        uint64_t res = 0;
+        rank += rankStep;
+        file += fileStep;
+        while (rank >= 0 && rank < 8 && file >= 0 && file < 8) {
+            uint8_t index = getIndex(rank, file);
+            uint64_t mask = getMask(index);
+            res |= mask;
+            // if the current square is occupied, stop walk
+            if (bitboard & mask) break;
+            rank += rankStep;
+            file += fileStep;
+        }
+        return res;
+    }
+
+    constexpr inline uint64_t getInBoundsMask(int x, int y) {
+        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
+            return getMask(x, y);
+        }
+
+        return 0;
+    }
 } // namespace choco
