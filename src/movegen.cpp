@@ -206,14 +206,15 @@ namespace choco {
 
         // sliding
         if constexpr (pieceType == BISHOP || pieceType == QUEEN) {
-            const Magic& magic = BISHOP_MAGIC[square];
-            uint64_t relevantOccupancies = occupancies & magic.mask;
-            uint16_t hash = getHash<BISHOP_SHIFTS>(relevantOccupancies, magic.magic);
+            const Magic& bishopMagic = BISHOP_MAGIC[square];
+            uint64_t relevantOccupancies = occupancies & bishopMagic.mask;
+            uint16_t hash = getHash<BISHOP_SHIFTS>(relevantOccupancies, bishopMagic.magic);
             attackBoard |= BISHOP_ATTACKS[square][hash];
-        } else if constexpr (pieceType == ROOK || pieceType == QUEEN) {
-            const Magic& magic = ROOK_MAGIC[square];
-            uint64_t relevantOccupancies = occupancies & magic.mask;
-            uint16_t hash = getHash<ROOK_SHIFTS>(relevantOccupancies, magic.magic);
+        }
+        if constexpr (pieceType == ROOK || pieceType == QUEEN) {
+            const Magic& rookMagic = ROOK_MAGIC[square];
+            uint64_t relevantOccupancies = occupancies & rookMagic.mask;
+            uint16_t hash = getHash<ROOK_SHIFTS>(relevantOccupancies, rookMagic.magic);
             attackBoard |= ROOK_ATTACKS[square][hash];
         }
 
