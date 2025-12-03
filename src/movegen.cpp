@@ -249,8 +249,8 @@ namespace choco {
             // king castling
             if constexpr (pieceType == KING && (moveType == MoveType::QUIET || moveType == MoveType::ALL)) {
                 // squares required to be clear when castling
-                static constexpr uint64_t CKINGSIDE_CASTLEABLE_SQUARES  = F1 & G1;
-                static constexpr uint64_t CQUEENSIDE_CASTLEABLE_SQUARES = D1 & C1 & B1;
+                static constexpr uint64_t CKINGSIDE_CASTLEABLE_SQUARES  = getMask(F1) | getMask(G1);
+                static constexpr uint64_t CQUEENSIDE_CASTLEABLE_SQUARES = getMask(D1) | getMask(C1) | getMask(B1);
 
                 // adjusted to the correct side (shift left 56 when side is black)
                 uint64_t kingSideCastleableSquares = CKINGSIDE_CASTLEABLE_SQUARES << board.state.activeColor * 56;
@@ -258,21 +258,16 @@ namespace choco {
 
                 uint64_t occupiedSquares = board.getOccupiedSquares();
 
-                uint64_t kingCastlingSquare = (board.state.activeColor == SIDE_WHITE) ? G1 : G8;
-                uint64_t queenCastlingSquare = (board.state.activeColor == SIDE_WHITE) ? C1 : C8;
+                uint64_t kingCastlingSquare = (board.state.activeColor == SIDE_WHITE) ? getMask(G1) : getMask(G8);
+                uint64_t queenCastlingSquare = (board.state.activeColor == SIDE_WHITE) ? getMask(C1) : getMask(C8);
 
                 bool canCastleKingSide = board.state.canCastle(board.state.activeColor, KING)
                                          && !(kingSideCastleableSquares & occupiedSquares);
                 bool canCastleQueenSide = board.state.canCastle(board.state.activeColor, QUEEN)
                                           && !(queenSideCastleableSquares & occupiedSquares);
 
-                // i'm so branchless and cool
-                if (canCastleKingSide)
-                    attacks |= kingCastlingSquare;
-                if (canCastleQueenSide)
-                    attacks |= queenCastlingSquare;
-
-                std::cout << "!!!!\n" << bitboardToPrettyString(attacks) << std::endl;
+                attacks |= kingCastlingSquare * canCastleKingSide;
+                attacks |= queenCastlingSquare * canCastleQueenSide;
             }
 
             // iterate through all end locations, add to move list
@@ -367,33 +362,33 @@ namespace choco {
     template<>
     void getMoves<MoveType::QUIET>(const Board& board, MoveList& moveList) {
         genPieceMoves<KING, MoveType::QUIET>(board, moveList);
-        // genPieceMoves<QUEEN, MoveType::QUIET>(board, moveList);
-        // genPieceMoves<BISHOP, MoveType::QUIET>(board, moveList);
-        // genPieceMoves<KNIGHT, MoveType::QUIET>(board, moveList);
-        // genPieceMoves<ROOK, MoveType::QUIET>(board, moveList);
+        genPieceMoves<QUEEN, MoveType::QUIET>(board, moveList);
+        genPieceMoves<BISHOP, MoveType::QUIET>(board, moveList);
+        genPieceMoves<KNIGHT, MoveType::QUIET>(board, moveList);
+        genPieceMoves<ROOK, MoveType::QUIET>(board, moveList);
 
-        // genPawnMoves<MoveType::NOISY>(board, moveList); // pawn moves are a bit quirky like that
+        genPawnMoves<MoveType::NOISY>(board, moveList); // pawn moves are a bit quirky like that
     }
 
     template<>
     void getMoves<MoveType::NOISY>(const Board& board, MoveList& moveList) {
         genPieceMoves<KING, MoveType::NOISY>(board, moveList);
-        // genPieceMoves<QUEEN, MoveType::NOISY>(board, moveList);
-        // genPieceMoves<BISHOP, MoveType::NOISY>(board, moveList);
-        // genPieceMoves<KNIGHT, MoveType::NOISY>(board, moveList);
-        // genPieceMoves<ROOK, MoveType::NOISY>(board, moveList);
+        genPieceMoves<QUEEN, MoveType::NOISY>(board, moveList);
+        genPieceMoves<BISHOP, MoveType::NOISY>(board, moveList);
+        genPieceMoves<KNIGHT, MoveType::NOISY>(board, moveList);
+        genPieceMoves<ROOK, MoveType::NOISY>(board, moveList);
 
-        // genPawnMoves<MoveType::NOISY>(board, moveList); // pawn moves are a bit quirky like that
+        genPawnMoves<MoveType::NOISY>(board, moveList); // pawn moves are a bit quirky like that
     }
     
     template<>
     void getMoves<MoveType::ALL>(const Board& board, MoveList& moveList) {
         genPieceMoves<KING, MoveType::ALL>(board, moveList);
-        // genPieceMoves<QUEEN, MoveType::ALL>(board, moveList);
-        // genPieceMoves<BISHOP, MoveType::ALL>(board, moveList);
-        // genPieceMoves<KNIGHT, MoveType::ALL>(board, moveList);
-        // genPieceMoves<ROOK, MoveType::ALL>(board, moveList);
+        genPieceMoves<QUEEN, MoveType::ALL>(board, moveList);
+        genPieceMoves<BISHOP, MoveType::ALL>(board, moveList);
+        genPieceMoves<KNIGHT, MoveType::ALL>(board, moveList);
+        genPieceMoves<ROOK, MoveType::ALL>(board, moveList);
 
-        // genPawnMoves<MoveType::ALL>(board, moveList); // pawn moves are a bit quirky like that
+        genPawnMoves<MoveType::ALL>(board, moveList); // pawn moves are a bit quirky like that
     }
 } // namespace choco
