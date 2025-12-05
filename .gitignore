@@ -24,6 +24,7 @@ build.ninja
 
 # ---- CLion / JetBrains ----
 .idea/
+cmake-build-debug/
 
 # ---- Compiled binaries ----
 *.exe
